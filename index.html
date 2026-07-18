@@ -281,14 +281,23 @@
     }
 
     function fechaISO(fecha) {
-      // Asegura string ISO sin milisegundos para mejor visualización
-      if (!fecha) return null;
+      // Formatea una fecha para visualización, usando hora LOCAL
+      // (evita el desfase que producía toISOString(), que convierte a UTC)
+      if (!fecha) return '—';
       const d = new Date(fecha);
-      return d.toISOString().slice(0, 16).replace('T', ' ');
+      if (isNaN(d.getTime())) return '—'; // fecha inválida (p.ej. placeholder '—')
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
     }
 
     function ahoraISO() {
-      return new Date().toISOString().slice(0, 16).replace('T', ' ');
+      // Devuelve un ISO string real (con 'T'), para que new Date(...) lo parseé
+      // de forma consistente en todos los navegadores.
+      return new Date().toISOString();
     }
 
     function formatearFechaParaInput(fechaISO) {
@@ -398,7 +407,7 @@
         const badgeClase = isCerrada ? 'badge cerrada' : 'badge';
         const badgeTexto = isCerrada ? 'Cerrada' : 'Abierta';
         const numFees = pos.fees.length;
-        const ultimoFee = numFees > 0 ? pos.fees[pos.fees.length-1].fecha : '—';
+        const ultimoFee = numFees > 0 ? fechaISO(pos.fees[pos.fees.length-1].fecha) : '—';
 
         html += `<div class="${claseCard}" data-id="${pos.id}">`;
         html += `<div class="position-header">`;
@@ -412,7 +421,7 @@
           html += `<span>🔒 Cierre: ${fechaISO(pos.fechaCierre)}</span>`;
         }
         html += `<span>💰 Fees: ${numFees}</span>`;
-        html += `<span>📌 Último fee: ${fechaISO(ultimoFee)}</span>`;
+        html += `<span>📌 Último fee: ${ultimoFee}</span>`;
         if (pos.notas) {
           html += `<span>📝 ${escapeHtml(pos.notas)}</span>`;
         }
