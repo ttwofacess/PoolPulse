@@ -332,6 +332,7 @@
             if (!p.notas) p.notas = '';
             if (p.rangoMin === undefined) p.rangoMin = null;
             if (p.rangoMax === undefined) p.rangoMax = null;
+            if (!p.identificador) p.identificador = '';
           });
         } catch (e) {
           posiciones = [];
@@ -347,7 +348,7 @@
     }
 
     // --- CRUD ---
-    function crearPosicion(nombre, fechaCreacion, notas, rangoMin, rangoMax) {
+    function crearPosicion(nombre, fechaCreacion, notas, rangoMin, rangoMax, identificador) {
       const nueva = {
         id: generarId(),
         nombre: nombre.trim() || `Posición ${posiciones.length+1}`,
@@ -356,12 +357,22 @@
         notas: notas || '',
         rangoMin: (rangoMin !== undefined && rangoMin !== null && rangoMin !== '') ? parseFloat(rangoMin) : null,
         rangoMax: (rangoMax !== undefined && rangoMax !== null && rangoMax !== '') ? parseFloat(rangoMax) : null,
+        identificador: identificador ? identificador.trim() : '',
         fees: []
       };
       posiciones.unshift(nueva); // más reciente arriba
       guardarDatos();
       renderizarListado();
       return nueva;
+    }
+
+    function actualizarNotas(idPosicion, notas) {
+      const pos = posiciones.find(p => p.id === idPosicion);
+      if (!pos) return false;
+      pos.notas = notas || '';
+      guardarDatos();
+      renderizarListado();
+      return true;
     }
 
     function actualizarRango(idPosicion, rangoMin, rangoMax) {
@@ -436,6 +447,9 @@
         html += `</div>`;
 
         html += `<div class="position-details">`;
+        if (pos.identificador) {
+          html += `<span>🆔 ID: ${escapeHtml(pos.identificador)}</span>`;
+        }
         html += `<span>📅 Creación: ${fechaISO(pos.fechaCreacion)}</span>`;
         if (isCerrada) {
           html += `<span>🔒 Cierre: ${fechaISO(pos.fechaCierre)}</span>`;
@@ -459,6 +473,7 @@
           html += `<button class="btn btn-secondary btn-sm btn-editar-rango" data-id="${pos.id}">📊 Rango</button>`;
           html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${pos.id}">🔒 Cerrar</button>`;
         }
+        html += `<button class="btn btn-secondary btn-sm btn-editar-notas" data-id="${pos.id}">✏️ Notas</button>`;
         html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${pos.id}">🗑️ Eliminar</button>`;
         html += `</div>`;
 
@@ -515,6 +530,9 @@
         <label for="nombrePos">Nombre / Pool (opcional)</label>
         <input type="text" id="nombrePos" placeholder="Ej: Uniswap ETH/USDC" />
 
+        <label for="idPos">ID de posición (opcional)</label>
+        <input type="text" id="idPos" placeholder="Ej: Token ID del NFT, #12345" />
+
         <label for="fechaCreacionPos">Fecha de creación</label>
         <input type="datetime-local" id="fechaCreacionPos" value="${formatearFechaParaInput(ahora)}" />
 
@@ -538,6 +556,7 @@
       document.getElementById('btnCancelarPos').addEventListener('click', cerrarModal);
       document.getElementById('btnGuardarPos').addEventListener('click', function() {
         const nombre = document.getElementById('nombrePos').value;
+        const idExterno = document.getElementById('idPos').value;
         const fecha = document.getElementById('fechaCreacionPos').value;
         const notas = document.getElementById('notasPos').value;
         const rangoMin = document.getElementById('rangoMinPos').value;
@@ -550,7 +569,7 @@
           alert('El mínimo del rango no puede ser mayor que el máximo.');
           return;
         }
-        crearPosicion(nombre, fecha, notas, rangoMin, rangoMax);
+        crearPosicion(nombre, fecha, notas, rangoMin, rangoMax, idExterno);
         cerrarModal();
       });
     }
@@ -665,6 +684,31 @@
       });
     }
 
+    // 5. Editar notas
+    function mostrarFormEditarNotas(idPosicion) {
+      const pos = posiciones.find(p => p.id === idPosicion);
+      if (!pos) return;
+      const html = `
+        <h2>✏️ Editar Notas</h2>
+        <p><strong>${escapeHtml(pos.nombre)}</strong></p>
+        <label for="notasEdit">Notas</label>
+        <textarea id="notasEdit" placeholder="Observaciones...">${escapeHtml(pos.notas)}</textarea>
+
+        <div class="modal-actions">
+          <button class="btn btn-cancel" id="btnCancelarNotas">Cancelar</button>
+          <button class="btn" id="btnGuardarNotas">Guardar</button>
+        </div>
+      `;
+      abrirModal(html);
+
+      document.getElementById('btnCancelarNotas').addEventListener('click', cerrarModal);
+      document.getElementById('btnGuardarNotas').addEventListener('click', function() {
+        const notas = document.getElementById('notasEdit').value;
+        actualizarNotas(idPosicion, notas);
+        cerrarModal();
+      });
+    }
+
     // --- Eventos globales (delegación en el listado) ---
     listadoEl.addEventListener('click', function(e) {
       const target = e.target.closest('button');
@@ -677,6 +721,8 @@
         mostrarFormAgregarFee(id);
       } else if (target.classList.contains('btn-editar-rango')) {
         mostrarFormEditarRango(id);
+      } else if (target.classList.contains('btn-editar-notas')) {
+        mostrarFormEditarNotas(id);
       } else if (target.classList.contains('btn-cerrar')) {
         mostrarFormCerrarPosicion(id);
       } else if (target.classList.contains('btn-eliminar')) {
