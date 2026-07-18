@@ -39,6 +39,12 @@
       font-weight: 600;
       color: #0b2b44;
     }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
     .btn {
       background: #2a7de1;
       color: white;
@@ -116,6 +122,28 @@
     .badge.cerrada {
       background: #e2e6ea;
       color: #383d41;
+    }
+    .range-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 30px;
+    }
+    .range-status.in-range {
+      color: #155724;
+      background: #d4edda;
+    }
+    .range-status.out-of-range {
+      color: #7a4b00;
+      background: #fff3cd;
+    }
+    .sync-status {
+      font-size: 0.85rem;
+      color: #3d4a5a;
+      margin: -18px 0 18px;
     }
     .position-details {
       display: flex;
@@ -246,8 +274,13 @@
   <!-- Cabecera -->
   <div class="header">
     <h1>📊 Liquidity Pools</h1>
-    <button class="btn" id="btnNuevaPosicion">➕ Nueva Posición</button>
+    <div class="header-actions">
+      <button class="btn btn-secondary" id="btnSync" type="button">↻ Sync ETH</button>
+      <button class="btn" id="btnNuevaPosicion" type="button">➕ Nueva Posición</button>
+    </div>
   </div>
+
+  <p class="sync-status" id="syncStatus">Sincronizá para consultar el precio de ETH en Binance.</p>
 
   <!-- Listado -->
   <div id="listadoPosiciones"></div>
@@ -269,17 +302,30 @@
 
     // --- Estado ---
     let posiciones = [];
+    let precioEth = null;
+    let ultimaSincronizacion = null;
 
     // --- DOM refs ---
     const listadoEl = document.getElementById('listadoPosiciones');
     const modalOverlay = document.getElementById('modalOverlay');
     const modalContenido = document.getElementById('modalContenido');
+    const btnSync = document.getElementById('btnSync');
+    const syncStatusEl = document.getElementById('syncStatus');
 
     // --- Funciones auxiliares ---
     function formatearNumero(num) {
       if (num === null || num === undefined || isNaN(num)) return '—';
       // Muestra hasta 6 decimales pero sin ceros innecesarios
       return parseFloat(num.toFixed(6)).toString();
+    }
+
+    function formatearPrecioUsd(num) {
+      return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(num);
     }
 
     function generarId() {
@@ -419,6 +465,10 @@
 
     // --- Renderizado ---
     function renderizarListado() {
+      if (precioEth !== null) {
+        syncStatusEl.textContent = `ETH/USDT: ${formatearPrecioUsd(precioEth)} · Actualizado: ${fechaISO(ultimaSincronizacion)}`;
+      }
+
       if (posiciones.length === 0) {
         listadoEl.innerHTML = `<p style="text-align:center;color:#9aa6b5;padding:40px 0;">Aún no hay posiciones. Crea una con el botón "➕ Nueva Posición".</p>`;
         return;
@@ -432,10 +482,18 @@
         const badgeTexto = isCerrada ? 'Cerrada' : 'Abierta';
         const numFees = pos.fees.length;
         const ultimoFee = numFees > 0 ? fechaISO(pos.fees[pos.fees.length-1].fecha) : '—';
+        const tieneRango = pos.rangoMin !== null && pos.rangoMax !== null;
+        const estaEnRango = !isCerrada && tieneRango && precioEth !== null && precioEth >= pos.rangoMin && precioEth <= pos.rangoMax;
 
         html += `<div class="${claseCard}" data-id="${pos.id}">`;
         html += `<div class="position-header">`;
-        html += `<div class="position-title">${escapeHtml(pos.nombre)} <span class="${badgeClase}">${badgeTexto}</span></div>`;
+        html += `<div class="position-title">${escapeHtml(pos.nombre)} <span class="${badgeClase}">${badgeTexto}</span>`;
+        if (estaEnRango) {
+          html += `<span class="range-status in-range" title="El precio actual de ETH está dentro del rango">● ✓ En rango</span>`;
+        } else if (!isCerrada && tieneRango && precioEth !== null) {
+          html += `<span class="range-status out-of-range" title="El precio actual de ETH está fuera del rango">● Fuera de rango</span>`;
+        }
+        html += `</div>`;
         html += `<span class="text-muted" style="font-size:0.8rem;">#${index+1}</span>`;
         html += `</div>`;
 
@@ -706,6 +764,34 @@
 
     // Botón Nueva Posición
     document.getElementById('btnNuevaPosicion').addEventListener('click', mostrarFormNuevaPosicion);
+
+    // Consulta el último precio negociado de ETH/USDT en Binance.
+    async function sincronizarPrecioEth() {
+      btnSync.disabled = true;
+      btnSync.textContent = '↻ Sincronizando…';
+      syncStatusEl.textContent = 'Consultando ETH/USDT en Binance…';
+
+      try {
+        const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
+        if (!response.ok) throw new Error(`Binance respondió ${response.status}`);
+
+        const data = await response.json();
+        const precio = Number(data.price);
+        if (!Number.isFinite(precio) || precio <= 0) throw new Error('Binance devolvió un precio inválido');
+
+        precioEth = precio;
+        ultimaSincronizacion = ahoraISO();
+        renderizarListado();
+      } catch (error) {
+        console.error('No se pudo sincronizar ETH/USDT:', error);
+        syncStatusEl.textContent = 'No se pudo consultar Binance. Verificá tu conexión e intentá nuevamente.';
+      } finally {
+        btnSync.disabled = false;
+        btnSync.textContent = '↻ Sync ETH';
+      }
+    }
+
+    btnSync.addEventListener('click', sincronizarPrecioEth);
 
     // --- Inicialización ---
     cargarDatos();
