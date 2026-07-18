@@ -366,20 +366,13 @@
       return nueva;
     }
 
-    function actualizarNotas(idPosicion, notas) {
+    function actualizarPosicion(idPosicion, notas, rangoMin, rangoMax, identificador) {
       const pos = posiciones.find(p => p.id === idPosicion);
       if (!pos) return false;
       pos.notas = notas || '';
-      guardarDatos();
-      renderizarListado();
-      return true;
-    }
-
-    function actualizarRango(idPosicion, rangoMin, rangoMax) {
-      const pos = posiciones.find(p => p.id === idPosicion);
-      if (!pos) return false;
       pos.rangoMin = (rangoMin !== undefined && rangoMin !== null && rangoMin !== '') ? parseFloat(rangoMin) : null;
       pos.rangoMax = (rangoMax !== undefined && rangoMax !== null && rangoMax !== '') ? parseFloat(rangoMax) : null;
+      pos.identificador = identificador ? identificador.trim() : '';
       guardarDatos();
       renderizarListado();
       return true;
@@ -470,10 +463,9 @@
         html += `<div class="position-actions">`;
         if (!isCerrada) {
           html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${pos.id}">📥 Collect Fee</button>`;
-          html += `<button class="btn btn-secondary btn-sm btn-editar-rango" data-id="${pos.id}">📊 Rango</button>`;
           html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${pos.id}">🔒 Cerrar</button>`;
         }
-        html += `<button class="btn btn-secondary btn-sm btn-editar-notas" data-id="${pos.id}">✏️ Notas</button>`;
+        html += `<button class="btn btn-secondary btn-sm btn-editar" data-id="${pos.id}">✏️ Editar</button>`;
         html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${pos.id}">🗑️ Eliminar</button>`;
         html += `</div>`;
 
@@ -650,61 +642,45 @@
       });
     }
 
-    // 4. Editar rango de precios
-    function mostrarFormEditarRango(idPosicion) {
+    // 4. Editar posición (ID, rango de precios y notas)
+    function mostrarFormEditar(idPosicion) {
       const pos = posiciones.find(p => p.id === idPosicion);
       if (!pos) return;
       const html = `
-        <h2>📊 Rango de Precios</h2>
+        <h2>✏️ Editar Posición</h2>
         <p><strong>${escapeHtml(pos.nombre)}</strong></p>
-        <label>Rango cubierto por la posición</label>
+
+        <label for="idEdit">ID de posición</label>
+        <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeHtml(pos.identificador)}" />
+
+        <label>Rango de precios</label>
         <div class="flex">
           <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${pos.rangoMin !== null ? pos.rangoMin : ''}" style="flex:1;" />
           <span class="text-muted">–</span>
           <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${pos.rangoMax !== null ? pos.rangoMax : ''}" style="flex:1;" />
         </div>
 
-        <div class="modal-actions">
-          <button class="btn btn-cancel" id="btnCancelarRango">Cancelar</button>
-          <button class="btn" id="btnGuardarRango">Guardar</button>
-        </div>
-      `;
-      abrirModal(html);
-
-      document.getElementById('btnCancelarRango').addEventListener('click', cerrarModal);
-      document.getElementById('btnGuardarRango').addEventListener('click', function() {
-        const rangoMin = document.getElementById('rangoMinEdit').value;
-        const rangoMax = document.getElementById('rangoMaxEdit').value;
-        if (rangoMin !== '' && rangoMax !== '' && parseFloat(rangoMin) > parseFloat(rangoMax)) {
-          alert('El mínimo del rango no puede ser mayor que el máximo.');
-          return;
-        }
-        actualizarRango(idPosicion, rangoMin, rangoMax);
-        cerrarModal();
-      });
-    }
-
-    // 5. Editar notas
-    function mostrarFormEditarNotas(idPosicion) {
-      const pos = posiciones.find(p => p.id === idPosicion);
-      if (!pos) return;
-      const html = `
-        <h2>✏️ Editar Notas</h2>
-        <p><strong>${escapeHtml(pos.nombre)}</strong></p>
         <label for="notasEdit">Notas</label>
         <textarea id="notasEdit" placeholder="Observaciones...">${escapeHtml(pos.notas)}</textarea>
 
         <div class="modal-actions">
-          <button class="btn btn-cancel" id="btnCancelarNotas">Cancelar</button>
-          <button class="btn" id="btnGuardarNotas">Guardar</button>
+          <button class="btn btn-cancel" id="btnCancelarEditar">Cancelar</button>
+          <button class="btn" id="btnGuardarEditar">Guardar</button>
         </div>
       `;
       abrirModal(html);
 
-      document.getElementById('btnCancelarNotas').addEventListener('click', cerrarModal);
-      document.getElementById('btnGuardarNotas').addEventListener('click', function() {
+      document.getElementById('btnCancelarEditar').addEventListener('click', cerrarModal);
+      document.getElementById('btnGuardarEditar').addEventListener('click', function() {
+        const idExterno = document.getElementById('idEdit').value;
+        const rangoMin = document.getElementById('rangoMinEdit').value;
+        const rangoMax = document.getElementById('rangoMaxEdit').value;
         const notas = document.getElementById('notasEdit').value;
-        actualizarNotas(idPosicion, notas);
+        if (rangoMin !== '' && rangoMax !== '' && parseFloat(rangoMin) > parseFloat(rangoMax)) {
+          alert('El mínimo del rango no puede ser mayor que el máximo.');
+          return;
+        }
+        actualizarPosicion(idPosicion, notas, rangoMin, rangoMax, idExterno);
         cerrarModal();
       });
     }
@@ -719,10 +695,8 @@
 
       if (target.classList.contains('btn-agregar-fee')) {
         mostrarFormAgregarFee(id);
-      } else if (target.classList.contains('btn-editar-rango')) {
-        mostrarFormEditarRango(id);
-      } else if (target.classList.contains('btn-editar-notas')) {
-        mostrarFormEditarNotas(id);
+      } else if (target.classList.contains('btn-editar')) {
+        mostrarFormEditar(id);
       } else if (target.classList.contains('btn-cerrar')) {
         mostrarFormCerrarPosicion(id);
       } else if (target.classList.contains('btn-eliminar')) {
