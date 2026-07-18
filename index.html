@@ -276,6 +276,12 @@
     const modalContenido = document.getElementById('modalContenido');
 
     // --- Funciones auxiliares ---
+    function formatearNumero(num) {
+      if (num === null || num === undefined || isNaN(num)) return '—';
+      // Muestra hasta 6 decimales pero sin ceros innecesarios
+      return parseFloat(num.toFixed(6)).toString();
+    }
+
     function generarId() {
       return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8);
     }
@@ -324,6 +330,8 @@
             if (!p.fechaCierre) p.fechaCierre = null;
             if (!p.nombre) p.nombre = '';
             if (!p.notas) p.notas = '';
+            if (p.rangoMin === undefined) p.rangoMin = null;
+            if (p.rangoMax === undefined) p.rangoMax = null;
           });
         } catch (e) {
           posiciones = [];
@@ -339,19 +347,31 @@
     }
 
     // --- CRUD ---
-    function crearPosicion(nombre, fechaCreacion, notas) {
+    function crearPosicion(nombre, fechaCreacion, notas, rangoMin, rangoMax) {
       const nueva = {
         id: generarId(),
         nombre: nombre.trim() || `Posición ${posiciones.length+1}`,
         fechaCreacion: fechaCreacion || ahoraISO(),
         fechaCierre: null,
         notas: notas || '',
+        rangoMin: (rangoMin !== undefined && rangoMin !== null && rangoMin !== '') ? parseFloat(rangoMin) : null,
+        rangoMax: (rangoMax !== undefined && rangoMax !== null && rangoMax !== '') ? parseFloat(rangoMax) : null,
         fees: []
       };
       posiciones.unshift(nueva); // más reciente arriba
       guardarDatos();
       renderizarListado();
       return nueva;
+    }
+
+    function actualizarRango(idPosicion, rangoMin, rangoMax) {
+      const pos = posiciones.find(p => p.id === idPosicion);
+      if (!pos) return false;
+      pos.rangoMin = (rangoMin !== undefined && rangoMin !== null && rangoMin !== '') ? parseFloat(rangoMin) : null;
+      pos.rangoMax = (rangoMax !== undefined && rangoMax !== null && rangoMax !== '') ? parseFloat(rangoMax) : null;
+      guardarDatos();
+      renderizarListado();
+      return true;
     }
 
     function agregarFee(idPosicion, fecha, monto, nota) {
@@ -422,6 +442,11 @@
         }
         html += `<span>💰 Fees: ${numFees}</span>`;
         html += `<span>📌 Último fee: ${ultimoFee}</span>`;
+        if (pos.rangoMin !== null && pos.rangoMax !== null) {
+          html += `<span>📊 Rango: ${formatearNumero(pos.rangoMin)} – ${formatearNumero(pos.rangoMax)}</span>`;
+        } else {
+          html += `<span class="text-muted">📊 Rango: sin definir</span>`;
+        }
         if (pos.notas) {
           html += `<span>📝 ${escapeHtml(pos.notas)}</span>`;
         }
@@ -431,6 +456,7 @@
         html += `<div class="position-actions">`;
         if (!isCerrada) {
           html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${pos.id}">📥 Collect Fee</button>`;
+          html += `<button class="btn btn-secondary btn-sm btn-editar-rango" data-id="${pos.id}">📊 Rango</button>`;
           html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${pos.id}">🔒 Cerrar</button>`;
         }
         html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${pos.id}">🗑️ Eliminar</button>`;
@@ -495,6 +521,13 @@
         <label for="notasPos">Notas (opcional)</label>
         <textarea id="notasPos" placeholder="Observaciones..."></textarea>
 
+        <label>Rango de precios (opcional)</label>
+        <div class="flex">
+          <input type="number" step="any" id="rangoMinPos" placeholder="Mínimo" style="flex:1;" />
+          <span class="text-muted">–</span>
+          <input type="number" step="any" id="rangoMaxPos" placeholder="Máximo" style="flex:1;" />
+        </div>
+
         <div class="modal-actions">
           <button class="btn btn-cancel" id="btnCancelarPos">Cancelar</button>
           <button class="btn" id="btnGuardarPos">Guardar</button>
@@ -507,11 +540,17 @@
         const nombre = document.getElementById('nombrePos').value;
         const fecha = document.getElementById('fechaCreacionPos').value;
         const notas = document.getElementById('notasPos').value;
+        const rangoMin = document.getElementById('rangoMinPos').value;
+        const rangoMax = document.getElementById('rangoMaxPos').value;
         if (!fecha) {
           alert('La fecha de creación es obligatoria.');
           return;
         }
-        crearPosicion(nombre, fecha, notas);
+        if (rangoMin !== '' && rangoMax !== '' && parseFloat(rangoMin) > parseFloat(rangoMax)) {
+          alert('El mínimo del rango no puede ser mayor que el máximo.');
+          return;
+        }
+        crearPosicion(nombre, fecha, notas, rangoMin, rangoMax);
         cerrarModal();
       });
     }
@@ -592,6 +631,40 @@
       });
     }
 
+    // 4. Editar rango de precios
+    function mostrarFormEditarRango(idPosicion) {
+      const pos = posiciones.find(p => p.id === idPosicion);
+      if (!pos) return;
+      const html = `
+        <h2>📊 Rango de Precios</h2>
+        <p><strong>${escapeHtml(pos.nombre)}</strong></p>
+        <label>Rango cubierto por la posición</label>
+        <div class="flex">
+          <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${pos.rangoMin !== null ? pos.rangoMin : ''}" style="flex:1;" />
+          <span class="text-muted">–</span>
+          <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${pos.rangoMax !== null ? pos.rangoMax : ''}" style="flex:1;" />
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-cancel" id="btnCancelarRango">Cancelar</button>
+          <button class="btn" id="btnGuardarRango">Guardar</button>
+        </div>
+      `;
+      abrirModal(html);
+
+      document.getElementById('btnCancelarRango').addEventListener('click', cerrarModal);
+      document.getElementById('btnGuardarRango').addEventListener('click', function() {
+        const rangoMin = document.getElementById('rangoMinEdit').value;
+        const rangoMax = document.getElementById('rangoMaxEdit').value;
+        if (rangoMin !== '' && rangoMax !== '' && parseFloat(rangoMin) > parseFloat(rangoMax)) {
+          alert('El mínimo del rango no puede ser mayor que el máximo.');
+          return;
+        }
+        actualizarRango(idPosicion, rangoMin, rangoMax);
+        cerrarModal();
+      });
+    }
+
     // --- Eventos globales (delegación en el listado) ---
     listadoEl.addEventListener('click', function(e) {
       const target = e.target.closest('button');
@@ -602,6 +675,8 @@
 
       if (target.classList.contains('btn-agregar-fee')) {
         mostrarFormAgregarFee(id);
+      } else if (target.classList.contains('btn-editar-rango')) {
+        mostrarFormEditarRango(id);
       } else if (target.classList.contains('btn-cerrar')) {
         mostrarFormCerrarPosicion(id);
       } else if (target.classList.contains('btn-eliminar')) {
