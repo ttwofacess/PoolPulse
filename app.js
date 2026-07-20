@@ -3,6 +3,7 @@
 
   // --- CONSTANTES ---
   const STORAGE_KEY = 'liquidityPositions';
+  const MIN_COLLECT_USD = 10;
 
   // --- Estado ---
   let posiciones = [];
@@ -135,9 +136,14 @@
       alert('Esta posición está cerrada. No se pueden agregar más fees.');
       return false;
     }
+    const montoNumerico = parseFloat(monto);
+    if (!Number.isFinite(montoNumerico) || montoNumerico < MIN_COLLECT_USD) {
+      alert(`El collect manual debe ser de al menos $${MIN_COLLECT_USD.toFixed(2)} USD.`);
+      return false;
+    }
     const fee = {
       fecha: fecha || ahoraISO(),
-      monto: monto ? parseFloat(monto) : null,
+      monto: montoNumerico,
       nota: nota || ''
     };
     pos.fees.push(fee);
@@ -269,6 +275,82 @@
     modalOverlay.classList.remove('active');
   }
 
+  // --- Estadísticas basadas exclusivamente en collects manuales ---
+  function diasEntre(inicio, fin) {
+    const inicioMs = new Date(inicio).getTime();
+    const finMs = new Date(fin).getTime();
+    if (!Number.isFinite(inicioMs) || !Number.isFinite(finMs)) return null;
+    return Math.max(0, (finMs - inicioMs) / 86400000);
+  }
+
+  function calcularEstadisticas(pos) {
+    const fechaFin = pos.fechaCierre || ahoraISO();
+    const diasActiva = diasEntre(pos.fechaCreacion, fechaFin);
+    const feesOrdenados = pos.fees
+      .filter(fee => Number.isFinite(new Date(fee.fecha).getTime()))
+      .slice()
+      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const feesConMonto = feesOrdenados.filter(fee => fee.monto !== null && fee.monto !== '' && Number.isFinite(Number(fee.monto)));
+    const total = feesConMonto.reduce((suma, fee) => suma + Number(fee.monto), 0);
+    const intervaloPromedio = feesOrdenados.length > 1
+      ? feesOrdenados.slice(1).reduce((suma, fee, indice) => suma + diasEntre(feesOrdenados[indice].fecha, fee.fecha), 0) / (feesOrdenados.length - 1)
+      : null;
+
+    return {
+      diasActiva,
+      eventos: feesOrdenados.length,
+      total,
+      promedioCollect: feesConMonto.length ? total / feesConMonto.length : null,
+      ingresoDiario: diasActiva > 0 ? total / diasActiva : total,
+      diasPrimerCollect: feesOrdenados.length ? diasEntre(pos.fechaCreacion, feesOrdenados[0].fecha) : null,
+      intervaloPromedio,
+      ultimoCollect: feesOrdenados.length ? feesOrdenados[feesOrdenados.length - 1].fecha : null
+    };
+  }
+
+  function mostrarEstadisticas() {
+    const filas = posiciones.map(pos => ({ pos, stats: calcularEstadisticas(pos) }))
+      .sort((a, b) => b.stats.ingresoDiario - a.stats.ingresoDiario);
+    const totalRecaudado = filas.reduce((suma, fila) => suma + fila.stats.total, 0);
+    const totalEventos = filas.reduce((suma, fila) => suma + fila.stats.eventos, 0);
+    const eventosConMonto = filas.reduce((suma, fila) => suma + fila.pos.fees.filter(fee => fee.monto !== null && fee.monto !== '' && Number.isFinite(Number(fee.monto))).length, 0);
+    const promedioGeneral = eventosConMonto ? totalRecaudado / eventosConMonto : null;
+    const formatoDias = valor => valor === null ? '—' : `${valor.toFixed(1)} días`;
+    const htmlFilas = filas.length ? filas.map(({ pos, stats }, indice) => `
+      <tr>
+        <td>${indice + 1}</td>
+        <td>${escapeHtml(pos.nombre)}</td>
+        <td>${formatearPrecioUsd(stats.total)}</td>
+        <td>${formatearPrecioUsd(stats.ingresoDiario)}</td>
+        <td>${stats.eventos}</td>
+        <td>${stats.promedioCollect === null ? '—' : formatearPrecioUsd(stats.promedioCollect)}</td>
+        <td>${formatoDias(stats.diasPrimerCollect)}</td>
+        <td>${formatoDias(stats.intervaloPromedio)}</td>
+        <td>${stats.ultimoCollect ? fechaISO(stats.ultimoCollect) : '—'}</td>
+      </tr>`).join('') : '<tr><td colspan="9" class="text-muted">Todavía no hay posiciones para comparar.</td></tr>';
+
+    abrirModal(`
+      <div class="stats-modal">
+        <h2>📊 Estadísticas de collects</h2>
+        <p class="text-muted">Datos calculados únicamente a partir de los eventos de collect manual registrados.</p>
+        <div class="stats-summary">
+          <div><small>Total recaudado</small><strong>${formatearPrecioUsd(totalRecaudado)}</strong></div>
+          <div><small>Eventos manuales</small><strong>${totalEventos}</strong></div>
+          <div><small>Promedio por collect</small><strong>${promedioGeneral === null ? '—' : formatearPrecioUsd(promedioGeneral)}</strong></div>
+        </div>
+        <div class="stats-table-wrap">
+          <table class="stats-table">
+            <thead><tr><th>#</th><th>Posición</th><th>Total</th><th>USD/día</th><th>Collects</th><th>Promedio</th><th>1.º collect</th><th>Intervalo prom.</th><th>Último collect</th></tr></thead>
+            <tbody>${htmlFilas}</tbody>
+          </table>
+        </div>
+        <p class="stats-note">El ranking prioriza USD/día para comparar posiciones con distinta antigüedad.</p>
+        <div class="modal-actions"><button class="btn btn-cancel" id="btnCerrarEstadisticas">Cerrar</button></div>
+      </div>
+    `);
+    document.getElementById('btnCerrarEstadisticas').addEventListener('click', cerrarModal);
+  }
+
   // --- Manejo de eventos del modal (delegación) ---
   modalOverlay.addEventListener('click', function(e) {
     if (e.target === modalOverlay) cerrarModal();
@@ -343,8 +425,9 @@
       <label for="fechaFee">Fecha del fee</label>
       <input type="datetime-local" id="fechaFee" value="${formatearFechaParaInput(ahora)}" />
 
-      <label for="montoFee">Monto (opcional, en USD o token)</label>
-      <input type="number" step="0.01" id="montoFee" placeholder="0.00" />
+      <label for="montoFee">Monto (USD)</label>
+      <input type="number" step="0.01" min="${MIN_COLLECT_USD}" id="montoFee" placeholder="${MIN_COLLECT_USD.toFixed(2)}" required />
+      <p class="form-help">El mínimo para registrar un collect es $${MIN_COLLECT_USD.toFixed(2)} USD.</p>
 
       <label for="notaFee">Nota (opcional)</label>
       <input type="text" id="notaFee" placeholder="Ej: Comisión semanal" />
@@ -365,8 +448,11 @@
         alert('La fecha es obligatoria.');
         return;
       }
-      agregarFee(idPosicion, fecha, monto, nota);
-      cerrarModal();
+      if (!Number.isFinite(parseFloat(monto)) || parseFloat(monto) < MIN_COLLECT_USD) {
+        alert(`El collect manual debe ser de al menos $${MIN_COLLECT_USD.toFixed(2)} USD.`);
+        return;
+      }
+      if (agregarFee(idPosicion, fecha, monto, nota)) cerrarModal();
     });
   }
 
@@ -468,6 +554,7 @@
 
   // Botón Nueva Posición
   document.getElementById('btnNuevaPosicion').addEventListener('click', mostrarFormNuevaPosicion);
+  document.getElementById('btnEstadisticas').addEventListener('click', mostrarEstadisticas);
 
   // Consulta el último precio negociado de ETH/USDT en Binance.
   async function sincronizarPrecioEth() {
