@@ -308,7 +308,15 @@
     };
   }
 
-  function mostrarEstadisticas() {
+  function renderizarEstadisticas() {
+    const estadisticasEl = document.getElementById('estadisticasContenido');
+    if (!estadisticasEl) return;
+
+    if (posiciones.length === 0) {
+      estadisticasEl.innerHTML = `<p class="stats-empty">Todavía no hay posiciones para comparar. Crea una desde la pestaña "📋 Posiciones".</p>`;
+      return;
+    }
+
     const filas = posiciones.map(pos => ({ pos, stats: calcularEstadisticas(pos) }))
       .sort((a, b) => b.stats.ingresoDiario - a.stats.ingresoDiario);
     const totalRecaudado = filas.reduce((suma, fila) => suma + fila.stats.total, 0);
@@ -316,39 +324,53 @@
     const eventosConMonto = filas.reduce((suma, fila) => suma + fila.pos.fees.filter(fee => fee.monto !== null && fee.monto !== '' && Number.isFinite(Number(fee.monto))).length, 0);
     const promedioGeneral = eventosConMonto ? totalRecaudado / eventosConMonto : null;
     const formatoDias = valor => valor === null ? '—' : `${valor.toFixed(1)} días`;
-    const htmlFilas = filas.length ? filas.map(({ pos, stats }, indice) => `
-      <tr>
-        <td>${indice + 1}</td>
-        <td>${escapeHtml(pos.nombre)}</td>
-        <td>${formatearPrecioUsd(stats.total)}</td>
-        <td>${formatearPrecioUsd(stats.ingresoDiario)}</td>
-        <td>${stats.eventos}</td>
-        <td>${stats.promedioCollect === null ? '—' : formatearPrecioUsd(stats.promedioCollect)}</td>
-        <td>${formatoDias(stats.diasPrimerCollect)}</td>
-        <td>${formatoDias(stats.intervaloPromedio)}</td>
-        <td>${stats.ultimoCollect ? fechaISO(stats.ultimoCollect) : '—'}</td>
-      </tr>`).join('') : '<tr><td colspan="9" class="text-muted">Todavía no hay posiciones para comparar.</td></tr>';
 
-    abrirModal(`
-      <div class="stats-modal">
+    const htmlTarjetas = filas.map(({ pos, stats }, indice) => {
+      const esTop = indice === 0;
+      return `
+        <div class="stats-card">
+          <div class="stats-card-header">
+            <div class="stats-card-title">
+              <span class="stats-rank${esTop ? ' top' : ''}">${indice + 1}</span>
+              ${escapeHtml(pos.nombre)}
+            </div>
+            <span class="stats-highlight">${formatearPrecioUsd(stats.ingresoDiario)} / día</span>
+          </div>
+          <div class="stats-grid">
+            <div><small>Total</small><strong>${formatearPrecioUsd(stats.total)}</strong></div>
+            <div><small>Collects</small><strong>${stats.eventos}</strong></div>
+            <div><small>Promedio</small><strong>${stats.promedioCollect === null ? '—' : formatearPrecioUsd(stats.promedioCollect)}</strong></div>
+            <div><small>1.º collect</small><strong>${formatoDias(stats.diasPrimerCollect)}</strong></div>
+            <div><small>Intervalo prom.</small><strong>${formatoDias(stats.intervaloPromedio)}</strong></div>
+            <div><small>Último collect</small><strong>${stats.ultimoCollect ? fechaISO(stats.ultimoCollect) : '—'}</strong></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    estadisticasEl.innerHTML = `
+      <div class="stats-header">
         <h2>📊 Estadísticas de collects</h2>
-        <p class="text-muted">Datos calculados únicamente a partir de los eventos de collect manual registrados.</p>
-        <div class="stats-summary">
-          <div><small>Total recaudado</small><strong>${formatearPrecioUsd(totalRecaudado)}</strong></div>
-          <div><small>Eventos manuales</small><strong>${totalEventos}</strong></div>
-          <div><small>Promedio por collect</small><strong>${promedioGeneral === null ? '—' : formatearPrecioUsd(promedioGeneral)}</strong></div>
-        </div>
-        <div class="stats-table-wrap">
-          <table class="stats-table">
-            <thead><tr><th>#</th><th>Posición</th><th>Total</th><th>USD/día</th><th>Collects</th><th>Promedio</th><th>1.º collect</th><th>Intervalo prom.</th><th>Último collect</th></tr></thead>
-            <tbody>${htmlFilas}</tbody>
-          </table>
-        </div>
-        <p class="stats-note">El ranking prioriza USD/día para comparar posiciones con distinta antigüedad.</p>
-        <div class="modal-actions"><button class="btn btn-cancel" id="btnCerrarEstadisticas">Cerrar</button></div>
       </div>
-    `);
-    document.getElementById('btnCerrarEstadisticas').addEventListener('click', cerrarModal);
+      <p class="text-muted mb-2">Datos calculados únicamente a partir de los eventos de collect manual registrados. El ranking prioriza USD/día para comparar posiciones con distinta antigüedad.</p>
+      <div class="stats-summary">
+        <div><small>Total recaudado</small><strong>${formatearPrecioUsd(totalRecaudado)}</strong></div>
+        <div><small>Eventos manuales</small><strong>${totalEventos}</strong></div>
+        <div><small>Promedio por collect</small><strong>${promedioGeneral === null ? '—' : formatearPrecioUsd(promedioGeneral)}</strong></div>
+      </div>
+      ${htmlTarjetas}
+    `;
+  }
+
+  // --- Navegación por pestañas ---
+  function cambiarPestana(tab) {
+    const esPosiciones = tab === 'posiciones';
+    document.getElementById('viewPosiciones').classList.toggle('active', esPosiciones);
+    document.getElementById('viewEstadisticas').classList.toggle('active', !esPosiciones);
+    document.getElementById('tabBtnPosiciones').classList.toggle('active', esPosiciones);
+    document.getElementById('tabBtnEstadisticas').classList.toggle('active', !esPosiciones);
+    document.getElementById('tabBtnPosiciones').setAttribute('aria-selected', String(esPosiciones));
+    document.getElementById('tabBtnEstadisticas').setAttribute('aria-selected', String(!esPosiciones));
+    if (!esPosiciones) renderizarEstadisticas();
   }
 
   // --- Manejo de eventos del modal (delegación) ---
@@ -554,7 +576,8 @@
 
   // Botón Nueva Posición
   document.getElementById('btnNuevaPosicion').addEventListener('click', mostrarFormNuevaPosicion);
-  document.getElementById('btnEstadisticas').addEventListener('click', mostrarEstadisticas);
+  document.getElementById('tabBtnPosiciones').addEventListener('click', () => cambiarPestana('posiciones'));
+  document.getElementById('tabBtnEstadisticas').addEventListener('click', () => cambiarPestana('estadisticas'));
 
   // Consulta el último precio negociado de ETH/USDT en Binance.
   async function sincronizarPrecioEth() {
