@@ -15,15 +15,27 @@
     <h1>📊 Liquidity Pools</h1>
     <div class="header-actions">
       <button class="btn btn-secondary" id="btnSync" type="button">↻ Sync ETH</button>
-      <button class="btn btn-secondary" id="btnEstadisticas" type="button">📊 Estadísticas</button>
       <button class="btn" id="btnNuevaPosicion" type="button">➕ Nueva Posición</button>
     </div>
   </div>
 
+  <!-- Tabs -->
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" id="tabBtnPosiciones" data-tab="posiciones" role="tab" aria-selected="true" type="button">📋 Posiciones</button>
+    <button class="tab-btn" id="tabBtnEstadisticas" data-tab="estadisticas" role="tab" aria-selected="false" type="button">📊 Estadísticas</button>
+  </div>
+
   <p class="sync-status" id="syncStatus">Sincronizá para consultar el precio de ETH en Binance.</p>
 
-  <!-- Listado -->
-  <div id="listadoPosiciones"></div>
+  <!-- Vista: Listado -->
+  <div id="viewPosiciones" class="tab-view active">
+    <div id="listadoPosiciones"></div>
+  </div>
+
+  <!-- Vista: Estadísticas -->
+  <div id="viewEstadisticas" class="tab-view">
+    <div id="estadisticasContenido"></div>
+  </div>
 </div>
 
 <!-- Modal genérico -->
