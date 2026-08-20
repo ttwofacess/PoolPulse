@@ -4,11 +4,13 @@
   // --- CONSTANTES ---
   const STORAGE_KEY = 'liquidityPositions';
   const STATS_ARCHIVE_KEY = 'liquidityPositionStatsArchive';
+  const STATS_HIDDEN_KEY = 'liquidityPositionStatsHidden';
   const MIN_COLLECT_USD = 10;
 
   // --- Estado ---
   let posiciones = [];
   let posicionesArchivadas = [];
+  let estadisticasOcultas = [];
   let precioEth = null;
   let ultimaSincronizacion = null;
 
@@ -104,6 +106,16 @@
     } else {
       posicionesArchivadas = [];
     }
+    const rawEstadisticasOcultas = localStorage.getItem(STATS_HIDDEN_KEY);
+    if (rawEstadisticasOcultas) {
+      try {
+        estadisticasOcultas = JSON.parse(rawEstadisticasOcultas).filter(id => typeof id === 'string');
+      } catch (e) {
+        estadisticasOcultas = [];
+      }
+    } else {
+      estadisticasOcultas = [];
+    }
     return posiciones;
   }
 
@@ -115,6 +127,10 @@
     localStorage.setItem(STATS_ARCHIVE_KEY, JSON.stringify(posicionesArchivadas));
   }
 
+  function guardarEstadisticasOcultas() {
+    localStorage.setItem(STATS_HIDDEN_KEY, JSON.stringify(estadisticasOcultas));
+  }
+
   function eliminarRegistroEstadisticas(idPosicion, archivada) {
     if (!confirm('¿Eliminar este registro de las estadísticas?')) return false;
 
@@ -122,9 +138,8 @@
       posicionesArchivadas = posicionesArchivadas.filter(pos => pos.id !== idPosicion);
       guardarArchivoEstadisticas();
     } else {
-      posiciones = posiciones.filter(pos => pos.id !== idPosicion);
-      guardarDatos();
-      renderizarListado();
+      if (!estadisticasOcultas.includes(idPosicion)) estadisticasOcultas.push(idPosicion);
+      guardarEstadisticasOcultas();
     }
 
     renderizarEstadisticas();
@@ -355,7 +370,9 @@
     if (!estadisticasEl) return;
 
     const posicionesParaEstadisticas = [
-      ...posiciones.map(pos => ({ pos, archivada: false })),
+      ...posiciones
+        .filter(pos => !estadisticasOcultas.includes(pos.id))
+        .map(pos => ({ pos, archivada: false })),
       ...posicionesArchivadas.map(pos => ({ pos, archivada: true }))
     ];
 
