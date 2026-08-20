@@ -115,6 +115,22 @@
     localStorage.setItem(STATS_ARCHIVE_KEY, JSON.stringify(posicionesArchivadas));
   }
 
+  function eliminarRegistroEstadisticas(idPosicion, archivada) {
+    if (!confirm('¿Eliminar este registro de las estadísticas?')) return false;
+
+    if (archivada) {
+      posicionesArchivadas = posicionesArchivadas.filter(pos => pos.id !== idPosicion);
+      guardarArchivoEstadisticas();
+    } else {
+      posiciones = posiciones.filter(pos => pos.id !== idPosicion);
+      guardarDatos();
+      renderizarListado();
+    }
+
+    renderizarEstadisticas();
+    return true;
+  }
+
   function archivarParaEstadisticas(pos) {
     const copia = JSON.parse(JSON.stringify(pos));
     posicionesArchivadas = posicionesArchivadas.filter(archivada => archivada.id !== pos.id);
@@ -356,16 +372,19 @@
     const promedioGeneral = eventosConMonto ? totalRecaudado / eventosConMonto : null;
     const formatoDias = valor => valor === null ? '—' : `${valor.toFixed(1)} días`;
 
-    const htmlTarjetas = filas.map(({ pos, stats }, indice) => {
+    const htmlTarjetas = filas.map(({ pos, archivada, stats }, indice) => {
       const esTop = indice === 0;
       return `
-        <div class="stats-card">
+        <div class="stats-card" data-id="${pos.id}">
           <div class="stats-card-header">
             <div class="stats-card-title">
               <span class="stats-rank${esTop ? ' top' : ''}">${indice + 1}</span>
               ${escapeHtml(pos.nombre)}
             </div>
-            <span class="stats-highlight">${formatearPrecioUsd(stats.ingresoDiario)} / día</span>
+            <div class="stats-card-actions">
+              <span class="stats-highlight">${formatearPrecioUsd(stats.ingresoDiario)} / día</span>
+              <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${pos.id}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
+            </div>
           </div>
           <div class="stats-grid">
             <div><small>Total</small><strong>${formatearPrecioUsd(stats.total)}</strong></div>
@@ -603,6 +622,13 @@
     } else if (target.classList.contains('btn-eliminar')) {
       eliminarPosicion(id);
     }
+  });
+
+  document.getElementById('estadisticasContenido').addEventListener('click', function(e) {
+    const target = e.target.closest('.btn-eliminar-estadistica');
+    if (!target) return;
+
+    eliminarRegistroEstadisticas(target.dataset.id, target.dataset.archivada === 'true');
   });
 
   // Botón Nueva Posición
