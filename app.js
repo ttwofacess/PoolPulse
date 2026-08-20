@@ -3,10 +3,12 @@
 
   // --- CONSTANTES ---
   const STORAGE_KEY = 'liquidityPositions';
+  const STATS_ARCHIVE_KEY = 'liquidityPositionStatsArchive';
   const MIN_COLLECT_USD = 10;
 
   // --- Estado ---
   let posiciones = [];
+  let posicionesArchivadas = [];
   let precioEth = null;
   let ultimaSincronizacion = null;
 
@@ -91,11 +93,33 @@
     } else {
       posiciones = [];
     }
+    const rawArchivo = localStorage.getItem(STATS_ARCHIVE_KEY);
+    if (rawArchivo) {
+      try {
+        posicionesArchivadas = JSON.parse(rawArchivo);
+        posicionesArchivadas = posicionesArchivadas.filter(pos => pos && pos.id && Array.isArray(pos.fees));
+      } catch (e) {
+        posicionesArchivadas = [];
+      }
+    } else {
+      posicionesArchivadas = [];
+    }
     return posiciones;
   }
 
   function guardarDatos() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(posiciones));
+  }
+
+  function guardarArchivoEstadisticas() {
+    localStorage.setItem(STATS_ARCHIVE_KEY, JSON.stringify(posicionesArchivadas));
+  }
+
+  function archivarParaEstadisticas(pos) {
+    const copia = JSON.parse(JSON.stringify(pos));
+    posicionesArchivadas = posicionesArchivadas.filter(archivada => archivada.id !== pos.id);
+    posicionesArchivadas.push(copia);
+    guardarArchivoEstadisticas();
   }
 
   // --- CRUD ---
@@ -167,6 +191,8 @@
 
   function eliminarPosicion(idPosicion) {
     if (!confirm('¿Eliminar esta posición y todos sus fees?')) return false;
+    const pos = posiciones.find(p => p.id === idPosicion);
+    if (pos && pos.fechaCierre) archivarParaEstadisticas(pos);
     posiciones = posiciones.filter(p => p.id !== idPosicion);
     guardarDatos();
     renderizarListado();
@@ -312,12 +338,17 @@
     const estadisticasEl = document.getElementById('estadisticasContenido');
     if (!estadisticasEl) return;
 
-    if (posiciones.length === 0) {
+    const posicionesParaEstadisticas = [
+      ...posiciones.map(pos => ({ pos, archivada: false })),
+      ...posicionesArchivadas.map(pos => ({ pos, archivada: true }))
+    ];
+
+    if (posicionesParaEstadisticas.length === 0) {
       estadisticasEl.innerHTML = `<p class="stats-empty">Todavía no hay posiciones para comparar. Crea una desde la pestaña "📋 Posiciones".</p>`;
       return;
     }
 
-    const filas = posiciones.map(pos => ({ pos, stats: calcularEstadisticas(pos) }))
+    const filas = posicionesParaEstadisticas.map(({ pos, archivada }) => ({ pos, archivada, stats: calcularEstadisticas(pos) }))
       .sort((a, b) => b.stats.ingresoDiario - a.stats.ingresoDiario);
     const totalRecaudado = filas.reduce((suma, fila) => suma + fila.stats.total, 0);
     const totalEventos = filas.reduce((suma, fila) => suma + fila.stats.eventos, 0);
