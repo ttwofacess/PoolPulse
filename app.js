@@ -16,7 +16,7 @@
 
   // --- DOM refs ---
   const listadoEl = document.getElementById('listadoPosiciones');
-  const modalOverlay = document.getElementById('modalOverlay');
+  const modalOverlay = document.getElementById('modalDialog');
   const modalContenido = document.getElementById('modalContenido');
   const btnSync = document.getElementById('btnSync');
   const syncStatusEl = document.getElementById('syncStatus');
@@ -325,11 +325,11 @@
   // --- Modales ---
   function abrirModal(html) {
     modalContenido.innerHTML = html;
-    modalOverlay.classList.add('active');
+    modalOverlay.showModal();
   }
 
   function cerrarModal() {
-    modalOverlay.classList.remove('active');
+    modalOverlay.close();
   }
 
   // --- Estadísticas basadas exclusivamente en collects manuales ---
@@ -439,11 +439,6 @@
     document.getElementById('tabBtnEstadisticas').setAttribute('aria-selected', String(!esPosiciones));
     if (!esPosiciones) renderizarEstadisticas();
   }
-
-  // --- Manejo de eventos del modal (delegación) ---
-  modalOverlay.addEventListener('click', function(e) {
-    if (e.target === modalOverlay) cerrarModal();
-  });
 
   // --- Formularios específicos ---
 
@@ -684,12 +679,5 @@
   // --- Inicialización ---
   cargarDatos();
   renderizarListado();
-
-  // Cerrar modal con Escape
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
-      cerrarModal();
-    }
-  });
 
 })();
