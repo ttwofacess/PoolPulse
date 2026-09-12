@@ -139,7 +139,12 @@ body {
   margin: 0 0 18px;
 }
 
-/* --- Tabs --- */
+/* --- Tabs (CSS-only con radio inputs) --- */
+.tab-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
 .tabs {
   display: flex;
   gap: 6px;
@@ -166,15 +171,18 @@ body {
 .tab-btn:hover {
   color: #1a2634;
 }
-.tab-btn.active {
+#tabPosiciones:checked ~ .tabs label[for="tabPosiciones"],
+#tabEstadisticas:checked ~ .tabs label[for="tabEstadisticas"] {
   background: #2a7de1;
   color: white;
 }
+/* Vista activa via sibling selector */
+#tabPosiciones:checked ~ #viewPosiciones,
+#tabEstadisticas:checked ~ #viewEstadisticas {
+  display: block;
+}
 .tab-view {
   display: none;
-}
-.tab-view.active {
-  display: block;
 }
 
 /* --- Estadísticas (vista de tarjetas) --- */
@@ -328,18 +336,14 @@ body {
 }
 
 /* --- Modal --- */
-.modal-overlay {
-  display: none;
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
+dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+dialog::backdrop {
   background: rgba(0,0,0,0.4);
   backdrop-filter: blur(3px);
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
-}
-.modal-overlay.active {
-  display: flex;
 }
 .modal {
   background: white;

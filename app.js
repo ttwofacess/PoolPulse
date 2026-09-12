@@ -16,7 +16,7 @@
 
   // --- DOM refs ---
   const listadoEl = document.getElementById('listadoPosiciones');
-  const modalOverlay = document.getElementById('modalOverlay');
+  const modalOverlay = document.getElementById('modalDialog');
   const modalContenido = document.getElementById('modalContenido');
   const btnSync = document.getElementById('btnSync');
   const syncStatusEl = document.getElementById('syncStatus');
@@ -325,11 +325,11 @@
   // --- Modales ---
   function abrirModal(html) {
     modalContenido.innerHTML = html;
-    modalOverlay.classList.add('active');
+    modalOverlay.showModal();
   }
 
   function cerrarModal() {
-    modalOverlay.classList.remove('active');
+    modalOverlay.close();
   }
 
   // --- Estadísticas basadas exclusivamente en collects manuales ---
@@ -427,23 +427,6 @@
       ${htmlTarjetas}
     `;
   }
-
-  // --- Navegación por pestañas ---
-  function cambiarPestana(tab) {
-    const esPosiciones = tab === 'posiciones';
-    document.getElementById('viewPosiciones').classList.toggle('active', esPosiciones);
-    document.getElementById('viewEstadisticas').classList.toggle('active', !esPosiciones);
-    document.getElementById('tabBtnPosiciones').classList.toggle('active', esPosiciones);
-    document.getElementById('tabBtnEstadisticas').classList.toggle('active', !esPosiciones);
-    document.getElementById('tabBtnPosiciones').setAttribute('aria-selected', String(esPosiciones));
-    document.getElementById('tabBtnEstadisticas').setAttribute('aria-selected', String(!esPosiciones));
-    if (!esPosiciones) renderizarEstadisticas();
-  }
-
-  // --- Manejo de eventos del modal (delegación) ---
-  modalOverlay.addEventListener('click', function(e) {
-    if (e.target === modalOverlay) cerrarModal();
-  });
 
   // --- Formularios específicos ---
 
@@ -650,8 +633,9 @@
 
   // Botón Nueva Posición
   document.getElementById('btnNuevaPosicion').addEventListener('click', mostrarFormNuevaPosicion);
-  document.getElementById('tabBtnPosiciones').addEventListener('click', () => cambiarPestana('posiciones'));
-  document.getElementById('tabBtnEstadisticas').addEventListener('click', () => cambiarPestana('estadisticas'));
+  document.getElementById('tabEstadisticas').addEventListener('change', function() {
+    if (this.checked) renderizarEstadisticas();
+  });
 
   // Consulta el último precio negociado de ETH/USDT en Binance.
   async function sincronizarPrecioEth() {
@@ -684,12 +668,5 @@
   // --- Inicialización ---
   cargarDatos();
   renderizarListado();
-
-  // Cerrar modal con Escape
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
-      cerrarModal();
-    }
-  });
 
 })();
