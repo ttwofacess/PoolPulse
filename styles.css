@@ -139,7 +139,12 @@ body {
   margin: 0 0 18px;
 }
 
-/* --- Tabs --- */
+/* --- Tabs (CSS-only con radio inputs) --- */
+.tab-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
 .tabs {
   display: flex;
   gap: 6px;
@@ -166,15 +171,18 @@ body {
 .tab-btn:hover {
   color: #1a2634;
 }
-.tab-btn.active {
+#tabPosiciones:checked ~ .tabs label[for="tabPosiciones"],
+#tabEstadisticas:checked ~ .tabs label[for="tabEstadisticas"] {
   background: #2a7de1;
   color: white;
 }
+/* Vista activa via sibling selector */
+#tabPosiciones:checked ~ #viewPosiciones,
+#tabEstadisticas:checked ~ #viewEstadisticas {
+  display: block;
+}
 .tab-view {
   display: none;
-}
-.tab-view.active {
-  display: block;
 }
 
 /* --- Estadísticas (vista de tarjetas) --- */
