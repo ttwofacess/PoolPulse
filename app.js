@@ -42,17 +42,12 @@
   }
 
   function fechaISO(fecha) {
-    // Formatea una fecha para visualización, usando hora LOCAL
-    // (evita el desfase que producía toISOString(), que convierte a UTC)
     if (!fecha) return '—';
     const d = new Date(fecha);
-    if (isNaN(d.getTime())) return '—'; // fecha inválida (p.ej. placeholder '—')
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
+    if (isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('sv-SE', {
+      dateStyle: 'short', timeStyle: 'short'
+    }).format(d);
   }
 
   function ahoraISO() {
@@ -61,16 +56,13 @@
     return new Date().toISOString();
   }
 
-  function formatearFechaParaInput(fechaISO) {
-    // Para input datetime-local necesitamos formato "YYYY-MM-DDTHH:mm"
-    if (!fechaISO) return '';
-    const d = new Date(fechaISO);
-    const year = d.getFullYear();
-    const month = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    const hours = String(d.getHours()).padStart(2,'0');
-    const minutes = String(d.getMinutes()).padStart(2,'0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  function formatearFechaParaInput(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('sv-SE', {
+      dateStyle: 'short', timeStyle: 'short'
+    }).format(d).replace(' ', 'T');
   }
 
   // --- Almacenamiento ---
