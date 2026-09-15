@@ -27,18 +27,20 @@
 
   // --- Funciones auxiliares ---
   function formatearNumero(num) {
-    if (num === null || num === undefined || isNaN(num)) return '—';
-    // Muestra hasta 6 decimales pero sin ceros innecesarios
-    return parseFloat(num.toFixed(6)).toString();
+    const n = aNumeroFinito(num);
+    if (n === null) return '—';
+    return parseFloat(n.toFixed(6)).toString();
   }
 
   function formatearPrecioUsd(num) {
+    const n = aNumeroFinito(num);
+    if (n === null) return '—';
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(num);
+    }).format(n);
   }
 
   function generarId() {
@@ -382,7 +384,8 @@
         html += `<div class="fee-list">`;
         html += `<strong>Historial de fees:</strong> `;
         pos.fees.forEach((fee, i) => {
-          const montoStr = fee.monto ? `$${fee.monto.toFixed(2)}` : '';
+          const montoNum = aNumeroFinito(fee.monto, { min: 0, max: MAX_MONTO_USD });
+          const montoStr = montoNum !== null ? `$${montoNum.toFixed(2)}` : '';
           const notaStr = fee.nota ? ` (${escapeHtml(fee.nota)})` : '';
           html += `<span class="fee-item">#${i+1} ${fechaISO(fee.fecha)} ${montoStr}${notaStr}</span>`;
         });
