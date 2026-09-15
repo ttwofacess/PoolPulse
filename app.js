@@ -6,6 +6,10 @@
   const STATS_ARCHIVE_KEY = 'liquidityPositionStatsArchive';
   const STATS_HIDDEN_KEY = 'liquidityPositionStatsHidden';
   const MIN_COLLECT_USD = 10;
+  const MAX_TEXTO_CORTO = 120;
+  const MAX_TEXTO_LARGO  = 2000;
+  const MAX_MONTO_USD    = 1e9;
+  const MAX_PRECIO       = 1e12;
 
   // --- Estado ---
   let posiciones = [];
@@ -63,6 +67,40 @@
     return new Intl.DateTimeFormat('sv-SE', {
       dateStyle: 'short', timeStyle: 'short'
     }).format(d).replace(' ', 'T');
+  }
+
+  function esTextoSeguro(valor, maxLargo) {
+    if (typeof valor !== 'string') return '';
+    return valor.replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, maxLargo);
+  }
+
+  function aNumeroFinito(valor, { min = -Infinity, max = Infinity } = {}) {
+    if (valor === null || valor === undefined || valor === '') return null;
+    const n = typeof valor === 'number' ? valor : Number(String(valor).trim());
+    if (!Number.isFinite(n) || n < min || n > max) return null;
+    return n;
+  }
+
+  function aFechaISO(valor) {
+    if (!valor) return null;
+    const d = new Date(valor);
+    if (!Number.isFinite(d.getTime())) return null;
+    const anio = d.getUTCFullYear();
+    if (anio < 2000 || anio > 2100) return null;
+    return d.toISOString();
+  }
+
+  function esIdValido(valor) {
+    return typeof valor === 'string' && /^[a-z0-9-]{1,64}$/i.test(valor);
+  }
+
+  function escapeAttr(valor) {
+    return String(valor === null || valor === undefined ? '' : valor)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // --- Almacenamiento ---
