@@ -160,15 +160,34 @@
   }
 
   function guardarDatos() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(posiciones));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posiciones));
+      return true;
+    } catch (e) {
+      console.error('No se pudo escribir en localStorage', e);
+      alert('No se pudieron guardar los cambios. Revisá el espacio disponible del navegador.');
+      return false;
+    }
   }
 
   function guardarArchivoEstadisticas() {
-    localStorage.setItem(STATS_ARCHIVE_KEY, JSON.stringify(posicionesArchivadas));
+    try {
+      localStorage.setItem(STATS_ARCHIVE_KEY, JSON.stringify(posicionesArchivadas));
+      return true;
+    } catch (e) {
+      console.error('No se pudo escribir en localStorage', e);
+      return false;
+    }
   }
 
   function guardarEstadisticasOcultas() {
-    localStorage.setItem(STATS_HIDDEN_KEY, JSON.stringify(estadisticasOcultas));
+    try {
+      localStorage.setItem(STATS_HIDDEN_KEY, JSON.stringify(estadisticasOcultas));
+      return true;
+    } catch (e) {
+      console.error('No se pudo escribir en localStorage', e);
+      return false;
+    }
   }
 
   function eliminarRegistroEstadisticas(idPosicion, archivada) {
@@ -194,70 +213,94 @@
   }
 
   // --- CRUD ---
+  function validarRango(rangoMin, rangoMax) {
+    const min = aNumeroFinito(rangoMin, { min: 0, max: MAX_PRECIO });
+    const max = aNumeroFinito(rangoMax, { min: 0, max: MAX_PRECIO });
+    if ((rangoMin !== '' && min === null) || (rangoMax !== '' && max === null)) {
+      return { ok: false, error: 'El rango debe ser numérico y positivo.' };
+    }
+    if (min !== null && max !== null && min > max) {
+      return { ok: false, error: 'El mínimo del rango no puede ser mayor que el máximo.' };
+    }
+    return { ok: true, min, max };
+  }
+
   function crearPosicion(nombre, fechaCreacion, notas, rangoMin, rangoMax, identificador) {
+    const fecha = aFechaISO(fechaCreacion);
+    if (fecha === null) return { ok: false, error: 'La fecha de creación no es válida.' };
+
+    const rango = validarRango(rangoMin, rangoMax);
+    if (!rango.ok) return rango;
+
     const nueva = {
       id: generarId(),
-      nombre: nombre.trim() || `Posición ${posiciones.length+1}`,
-      fechaCreacion: fechaCreacion || ahoraISO(),
+      nombre: esTextoSeguro(nombre, MAX_TEXTO_CORTO) || `Posición ${posiciones.length + 1}`,
+      fechaCreacion: fecha,
       fechaCierre: null,
-      notas: notas || '',
-      rangoMin: (rangoMin !== undefined && rangoMin !== null && rangoMin !== '') ? parseFloat(rangoMin) : null,
-      rangoMax: (rangoMax !== undefined && rangoMax !== null && rangoMax !== '') ? parseFloat(rangoMax) : null,
-      identificador: identificador ? identificador.trim() : '',
+      notas: esTextoSeguro(notas, MAX_TEXTO_LARGO),
+      rangoMin: rango.min,
+      rangoMax: rango.max,
+      identificador: esTextoSeguro(identificador, MAX_TEXTO_CORTO),
       fees: []
     };
-    posiciones.unshift(nueva); // más reciente arriba
-    guardarDatos();
+    posiciones.unshift(nueva);
+    if (!guardarDatos()) return { ok: false, error: 'No se pudo guardar. ¿Almacenamiento lleno?' };
     renderizarListado();
-    return nueva;
+    return { ok: true, posicion: nueva };
   }
 
   function actualizarPosicion(idPosicion, notas, rangoMin, rangoMax, identificador) {
     const pos = posiciones.find(p => p.id === idPosicion);
-    if (!pos) return false;
-    pos.notas = notas || '';
-    pos.rangoMin = (rangoMin !== undefined && rangoMin !== null && rangoMin !== '') ? parseFloat(rangoMin) : null;
-    pos.rangoMax = (rangoMax !== undefined && rangoMax !== null && rangoMax !== '') ? parseFloat(rangoMax) : null;
-    pos.identificador = identificador ? identificador.trim() : '';
+    if (!pos) return { ok: false, error: 'Posición no encontrada.' };
+
+    const rango = validarRango(rangoMin, rangoMax);
+    if (!rango.ok) return rango;
+
+    pos.notas = esTextoSeguro(notas, MAX_TEXTO_LARGO);
+    pos.rangoMin = rango.min;
+    pos.rangoMax = rango.max;
+    pos.identificador = esTextoSeguro(identificador, MAX_TEXTO_CORTO);
     guardarDatos();
     renderizarListado();
-    return true;
+    return { ok: true };
   }
 
   function agregarFee(idPosicion, fecha, monto, nota) {
     const pos = posiciones.find(p => p.id === idPosicion);
-    if (!pos) return false;
-    if (pos.fechaCierre) {
-      alert('Esta posición está cerrada. No se pueden agregar más fees.');
-      return false;
+    if (!pos) return { ok: false, error: 'Posición no encontrada.' };
+    if (pos.fechaCierre) return { ok: false, error: 'Esta posición está cerrada. No se pueden agregar más fees.' };
+
+    const fechaFee = aFechaISO(fecha);
+    if (fechaFee === null) return { ok: false, error: 'La fecha del fee no es válida.' };
+    if (fechaFee < pos.fechaCreacion) return { ok: false, error: 'El fee no puede ser anterior a la creación de la posición.' };
+
+    const montoNumerico = aNumeroFinito(monto, { min: MIN_COLLECT_USD, max: MAX_MONTO_USD });
+    if (montoNumerico === null) {
+      return { ok: false, error: `El collect manual debe ser numérico y de al menos $${MIN_COLLECT_USD.toFixed(2)} USD.` };
     }
-    const montoNumerico = parseFloat(monto);
-    if (!Number.isFinite(montoNumerico) || montoNumerico < MIN_COLLECT_USD) {
-      alert(`El collect manual debe ser de al menos $${MIN_COLLECT_USD.toFixed(2)} USD.`);
-      return false;
-    }
-    const fee = {
-      fecha: fecha || ahoraISO(),
-      monto: montoNumerico,
-      nota: nota || ''
-    };
-    pos.fees.push(fee);
+
+    pos.fees.push({ fecha: fechaFee, monto: montoNumerico, nota: esTextoSeguro(nota, MAX_TEXTO_CORTO) });
     guardarDatos();
     renderizarListado();
-    return true;
+    return { ok: true };
   }
 
   function cerrarPosicion(idPosicion, fechaCierre) {
     const pos = posiciones.find(p => p.id === idPosicion);
-    if (!pos) return false;
-    if (pos.fechaCierre) {
-      alert('Ya está cerrada.');
-      return false;
-    }
-    pos.fechaCierre = fechaCierre || ahoraISO();
+    if (!pos) return { ok: false, error: 'Posición no encontrada.' };
+    if (pos.fechaCierre) return { ok: false, error: 'Ya está cerrada.' };
+
+    const fecha = aFechaISO(fechaCierre);
+    if (fecha === null) return { ok: false, error: 'La fecha de cierre no es válida.' };
+    if (fecha < pos.fechaCreacion) return { ok: false, error: 'La fecha de cierre no puede ser anterior a la creación.' };
+
+    const ultimoFee = pos.fees.length > 0 ? pos.fees[pos.fees.length - 1].fecha : null;
+    if (ultimoFee && fecha < ultimoFee) return { ok: false, error: 'La fecha de cierre no puede ser anterior al último fee registrado.' };
+
+    pos.fechaCierre = fecha;
     guardarDatos();
     renderizarListado();
-    return true;
+    return { ok: true };
   }
 
   function eliminarPosicion(idPosicion) {
@@ -503,21 +546,15 @@
 
     document.getElementById('btnCancelarPos').addEventListener('click', cerrarModal);
     document.getElementById('btnGuardarPos').addEventListener('click', function() {
-      const nombre = document.getElementById('nombrePos').value;
-      const idExterno = document.getElementById('idPos').value;
-      const fecha = document.getElementById('fechaCreacionPos').value;
-      const notas = document.getElementById('notasPos').value;
-      const rangoMin = document.getElementById('rangoMinPos').value;
-      const rangoMax = document.getElementById('rangoMaxPos').value;
-      if (!fecha) {
-        alert('La fecha de creación es obligatoria.');
-        return;
-      }
-      if (rangoMin !== '' && rangoMax !== '' && parseFloat(rangoMin) > parseFloat(rangoMax)) {
-        alert('El mínimo del rango no puede ser mayor que el máximo.');
-        return;
-      }
-      crearPosicion(nombre, fecha, notas, rangoMin, rangoMax, idExterno);
+      const resultado = crearPosicion(
+        document.getElementById('nombrePos').value,
+        document.getElementById('fechaCreacionPos').value,
+        document.getElementById('notasPos').value,
+        document.getElementById('rangoMinPos').value,
+        document.getElementById('rangoMaxPos').value,
+        document.getElementById('idPos').value
+      );
+      if (!resultado.ok) { alert(resultado.error); return; }
       cerrarModal();
     });
   }
@@ -553,18 +590,14 @@
 
     document.getElementById('btnCancelarFee').addEventListener('click', cerrarModal);
     document.getElementById('btnGuardarFee').addEventListener('click', function() {
-      const fecha = document.getElementById('fechaFee').value;
-      const monto = document.getElementById('montoFee').value;
-      const nota = document.getElementById('notaFee').value;
-      if (!fecha) {
-        alert('La fecha es obligatoria.');
-        return;
-      }
-      if (!Number.isFinite(parseFloat(monto)) || parseFloat(monto) < MIN_COLLECT_USD) {
-        alert(`El collect manual debe ser de al menos $${MIN_COLLECT_USD.toFixed(2)} USD.`);
-        return;
-      }
-      if (agregarFee(idPosicion, fecha, monto, nota)) cerrarModal();
+      const resultado = agregarFee(
+        idPosicion,
+        document.getElementById('fechaFee').value,
+        document.getElementById('montoFee').value,
+        document.getElementById('notaFee').value
+      );
+      if (!resultado.ok) { alert(resultado.error); return; }
+      cerrarModal();
     });
   }
 
@@ -592,12 +625,8 @@
 
     document.getElementById('btnCancelarCierre').addEventListener('click', cerrarModal);
     document.getElementById('btnConfirmarCierre').addEventListener('click', function() {
-      const fecha = document.getElementById('fechaCierrePos').value;
-      if (!fecha) {
-        alert('La fecha de cierre es obligatoria.');
-        return;
-      }
-      cerrarPosicion(idPosicion, fecha);
+      const resultado = cerrarPosicion(idPosicion, document.getElementById('fechaCierrePos').value);
+      if (!resultado.ok) { alert(resultado.error); return; }
       cerrarModal();
     });
   }
@@ -632,15 +661,14 @@
 
     document.getElementById('btnCancelarEditar').addEventListener('click', cerrarModal);
     document.getElementById('btnGuardarEditar').addEventListener('click', function() {
-      const idExterno = document.getElementById('idEdit').value;
-      const rangoMin = document.getElementById('rangoMinEdit').value;
-      const rangoMax = document.getElementById('rangoMaxEdit').value;
-      const notas = document.getElementById('notasEdit').value;
-      if (rangoMin !== '' && rangoMax !== '' && parseFloat(rangoMin) > parseFloat(rangoMax)) {
-        alert('El mínimo del rango no puede ser mayor que el máximo.');
-        return;
-      }
-      actualizarPosicion(idPosicion, notas, rangoMin, rangoMax, idExterno);
+      const resultado = actualizarPosicion(
+        idPosicion,
+        document.getElementById('notasEdit').value,
+        document.getElementById('rangoMinEdit').value,
+        document.getElementById('rangoMaxEdit').value,
+        document.getElementById('idEdit').value
+      );
+      if (!resultado.ok) { alert(resultado.error); return; }
       cerrarModal();
     });
   }
