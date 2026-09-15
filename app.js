@@ -522,16 +522,16 @@
     const html = `
       <h2>📌 Nueva Posición</h2>
       <label for="nombrePos">Nombre / Pool (opcional)</label>
-      <input type="text" id="nombrePos" placeholder="Ej: Uniswap ETH/USDC" />
+      <input type="text" id="nombrePos" placeholder="Ej: Uniswap ETH/USDC" maxlength="120" />
 
       <label for="idPos">ID de posición (opcional)</label>
-      <input type="text" id="idPos" placeholder="Ej: Token ID del NFT, #12345" />
+      <input type="text" id="idPos" placeholder="Ej: Token ID del NFT, #12345" maxlength="120" />
 
       <label for="fechaCreacionPos">Fecha de creación</label>
       <input type="datetime-local" id="fechaCreacionPos" value="${formatearFechaParaInput(ahora)}" />
 
       <label for="notasPos">Notas (opcional)</label>
-      <textarea id="notasPos" placeholder="Observaciones..."></textarea>
+      <textarea id="notasPos" placeholder="Observaciones..." maxlength="2000"></textarea>
 
       <label>Rango de precios (opcional)</label>
       <div class="flex">
@@ -582,7 +582,7 @@
       <p class="form-help">El mínimo para registrar un collect es $${MIN_COLLECT_USD.toFixed(2)} USD.</p>
 
       <label for="notaFee">Nota (opcional)</label>
-      <input type="text" id="notaFee" placeholder="Ej: Comisión semanal" />
+      <input type="text" id="notaFee" placeholder="Ej: Comisión semanal" maxlength="120" />
 
       <div class="modal-actions">
         <button class="btn btn-cancel" id="btnCancelarFee">Cancelar</button>
@@ -643,7 +643,7 @@
       <p><strong>${escapeHtml(pos.nombre)}</strong></p>
 
       <label for="idEdit">ID de posición</label>
-      <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeAttr(pos.identificador)}" />
+      <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeAttr(pos.identificador)}" maxlength="120" />
 
       <label>Rango de precios</label>
       <div class="flex">
@@ -653,7 +653,7 @@
       </div>
 
       <label for="notasEdit">Notas</label>
-      <textarea id="notasEdit" placeholder="Observaciones...">${escapeHtml(pos.notas)}</textarea>
+      <textarea id="notasEdit" placeholder="Observaciones..." maxlength="2000">${escapeHtml(pos.notas)}</textarea>
 
       <div class="modal-actions">
         <button class="btn btn-cancel" id="btnCancelarEditar">Cancelar</button>
