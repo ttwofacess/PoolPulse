@@ -282,7 +282,7 @@
       const tieneRango = pos.rangoMin !== null && pos.rangoMax !== null;
       const estaEnRango = !isCerrada && tieneRango && precioEth !== null && precioEth >= pos.rangoMin && precioEth <= pos.rangoMax;
 
-      html += `<div class="${claseCard}" data-id="${pos.id}">`;
+      html += `<div class="${claseCard}" data-id="${escapeAttr(pos.id)}">`;
       html += `<div class="position-header">`;
       html += `<div class="position-title">${escapeHtml(pos.nombre)} <span class="${badgeClase}">${badgeTexto}</span>`;
       if (estaEnRango) {
@@ -317,11 +317,11 @@
       // Acciones
       html += `<div class="position-actions">`;
       if (!isCerrada) {
-        html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${pos.id}">📥 Collect Fee</button>`;
-        html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${pos.id}">🔒 Cerrar</button>`;
+        html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${escapeAttr(pos.id)}">📥 Collect Fee</button>`;
+        html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${escapeAttr(pos.id)}">🔒 Cerrar</button>`;
       }
-      html += `<button class="btn btn-secondary btn-sm btn-editar" data-id="${pos.id}">✏️ Editar</button>`;
-      html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${pos.id}">🗑️ Eliminar</button>`;
+      html += `<button class="btn btn-secondary btn-sm btn-editar" data-id="${escapeAttr(pos.id)}">✏️ Editar</button>`;
+      html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${escapeAttr(pos.id)}">🗑️ Eliminar</button>`;
       html += `</div>`;
 
       // Lista de fees (expandible)
@@ -422,7 +422,7 @@
     const htmlTarjetas = filas.map(({ pos, archivada, stats }, indice) => {
       const esTop = indice === 0;
       return `
-        <div class="stats-card" data-id="${pos.id}">
+        <div class="stats-card" data-id="${escapeAttr(pos.id)}">
           <div class="stats-card-header">
             <div class="stats-card-title">
               <span class="stats-rank${esTop ? ' top' : ''}">${indice + 1}</span>
@@ -430,7 +430,7 @@
             </div>
             <div class="stats-card-actions">
               <span class="stats-highlight">${formatearPrecioUsd(stats.ingresoDiario)} / día</span>
-              <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${pos.id}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
+              <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${escapeAttr(pos.id)}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
             </div>
           </div>
           <div class="stats-grid">
@@ -601,13 +601,13 @@
       <p><strong>${escapeHtml(pos.nombre)}</strong></p>
 
       <label for="idEdit">ID de posición</label>
-      <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeHtml(pos.identificador)}" />
+      <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeAttr(pos.identificador)}" />
 
       <label>Rango de precios</label>
       <div class="flex">
-        <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${pos.rangoMin !== null ? pos.rangoMin : ''}" style="flex:1;" />
+        <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${escapeAttr(aNumeroFinito(pos.rangoMin) ?? '')}" style="flex:1;" />
         <span class="text-muted">–</span>
-        <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${pos.rangoMax !== null ? pos.rangoMax : ''}" style="flex:1;" />
+        <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${escapeAttr(aNumeroFinito(pos.rangoMax) ?? '')}" style="flex:1;" />
       </div>
 
       <label for="notasEdit">Notas</label>
