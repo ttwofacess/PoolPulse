@@ -103,47 +103,57 @@
       .replace(/'/g, '&#39;');
   }
 
+  function normalizarFee(fee) {
+    if (!fee || typeof fee !== 'object') return null;
+    const monto = aNumeroFinito(fee.monto, { min: 0, max: MAX_MONTO_USD });
+    const fecha = aFechaISO(fee.fecha);
+    if (monto === null || fecha === null) return null;
+    return { fecha, monto, nota: esTextoSeguro(fee.nota, MAX_TEXTO_CORTO) };
+  }
+
+  function normalizarPosicion(p) {
+    if (!p || typeof p !== 'object') return null;
+    if (!esIdValido(p.id)) return null;
+    const fechaCreacion = aFechaISO(p.fechaCreacion);
+    if (fechaCreacion === null) return null;
+
+    const fechaCierre = aFechaISO(p.fechaCierre);
+    const rangoMin = aNumeroFinito(p.rangoMin, { min: 0, max: MAX_PRECIO });
+    const rangoMax = aNumeroFinito(p.rangoMax, { min: 0, max: MAX_PRECIO });
+    const rangoValido = rangoMin !== null && rangoMax !== null && rangoMin <= rangoMax;
+
+    return {
+      id: p.id,
+      nombre: esTextoSeguro(p.nombre, MAX_TEXTO_CORTO),
+      identificador: esTextoSeguro(p.identificador, MAX_TEXTO_CORTO),
+      notas: esTextoSeguro(p.notas, MAX_TEXTO_LARGO),
+      fechaCreacion,
+      fechaCierre: (fechaCierre && fechaCierre >= fechaCreacion) ? fechaCierre : null,
+      rangoMin: rangoValido ? rangoMin : null,
+      rangoMax: rangoValido ? rangoMax : null,
+      fees: Array.isArray(p.fees) ? p.fees.map(normalizarFee).filter(Boolean) : []
+    };
+  }
+
+  function leerLista(clave, normalizador) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(clave) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizador).filter(Boolean);
+    } catch (e) {
+      console.warn(`Datos inválidos en ${clave}, se descartan.`, e);
+      return [];
+    }
+  }
+
   // --- Almacenamiento ---
   function cargarDatos() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        posiciones = JSON.parse(raw);
-        // Asegurar que cada posición tenga array fees y fechas como strings o null
-        posiciones.forEach(p => {
-          if (!p.fees) p.fees = [];
-          if (!p.fechaCierre) p.fechaCierre = null;
-          if (!p.nombre) p.nombre = '';
-          if (!p.notas) p.notas = '';
-          if (p.rangoMin === undefined) p.rangoMin = null;
-          if (p.rangoMax === undefined) p.rangoMax = null;
-          if (!p.identificador) p.identificador = '';
-        });
-      } catch (e) {
-        posiciones = [];
-      }
-    } else {
-      posiciones = [];
-    }
-    const rawArchivo = localStorage.getItem(STATS_ARCHIVE_KEY);
-    if (rawArchivo) {
-      try {
-        posicionesArchivadas = JSON.parse(rawArchivo);
-        posicionesArchivadas = posicionesArchivadas.filter(pos => pos && pos.id && Array.isArray(pos.fees));
-      } catch (e) {
-        posicionesArchivadas = [];
-      }
-    } else {
-      posicionesArchivadas = [];
-    }
-    const rawEstadisticasOcultas = localStorage.getItem(STATS_HIDDEN_KEY);
-    if (rawEstadisticasOcultas) {
-      try {
-        estadisticasOcultas = JSON.parse(rawEstadisticasOcultas).filter(id => typeof id === 'string');
-      } catch (e) {
-        estadisticasOcultas = [];
-      }
-    } else {
+    posiciones = leerLista(STORAGE_KEY, normalizarPosicion);
+    posicionesArchivadas = leerLista(STATS_ARCHIVE_KEY, normalizarPosicion);
+    try {
+      const ocultas = JSON.parse(localStorage.getItem(STATS_HIDDEN_KEY) || '[]');
+      estadisticasOcultas = Array.isArray(ocultas) ? ocultas.filter(esIdValido) : [];
+    } catch (e) {
       estadisticasOcultas = [];
     }
     return posiciones;
