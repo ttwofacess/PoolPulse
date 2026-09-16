@@ -6,6 +6,10 @@
   const STATS_ARCHIVE_KEY = 'liquidityPositionStatsArchive';
   const STATS_HIDDEN_KEY = 'liquidityPositionStatsHidden';
   const MIN_COLLECT_USD = 10;
+  const MAX_TEXTO_CORTO = 120;
+  const MAX_TEXTO_LARGO  = 2000;
+  const MAX_MONTO_USD    = 1e9;
+  const MAX_PRECIO       = 1e12;
 
   // --- Estado ---
   let posiciones = [];
@@ -23,18 +27,20 @@
 
   // --- Funciones auxiliares ---
   function formatearNumero(num) {
-    if (num === null || num === undefined || isNaN(num)) return '—';
-    // Muestra hasta 6 decimales pero sin ceros innecesarios
-    return parseFloat(num.toFixed(6)).toString();
+    const n = aNumeroFinito(num);
+    if (n === null) return '—';
+    return parseFloat(n.toFixed(6)).toString();
   }
 
   function formatearPrecioUsd(num) {
+    const n = aNumeroFinito(num);
+    if (n === null) return '—';
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(num);
+    }).format(n);
   }
 
   function generarId() {
@@ -65,62 +71,125 @@
     }).format(d).replace(' ', 'T');
   }
 
+  function esTextoSeguro(valor, maxLargo) {
+    if (typeof valor !== 'string') return '';
+    return valor.replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, maxLargo);
+  }
+
+  function aNumeroFinito(valor, { min = -Infinity, max = Infinity } = {}) {
+    if (valor === null || valor === undefined || valor === '') return null;
+    const n = typeof valor === 'number' ? valor : Number(String(valor).trim());
+    if (!Number.isFinite(n) || n < min || n > max) return null;
+    return n;
+  }
+
+  function aFechaISO(valor) {
+    if (!valor) return null;
+    const d = new Date(valor);
+    if (!Number.isFinite(d.getTime())) return null;
+    const anio = d.getUTCFullYear();
+    if (anio < 2000 || anio > 2100) return null;
+    return d.toISOString();
+  }
+
+  function esIdValido(valor) {
+    return typeof valor === 'string' && /^[a-z0-9-]{1,64}$/i.test(valor);
+  }
+
+  function escapeAttr(valor) {
+    return String(valor === null || valor === undefined ? '' : valor)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function normalizarFee(fee) {
+    if (!fee || typeof fee !== 'object') return null;
+    const monto = aNumeroFinito(fee.monto, { min: 0, max: MAX_MONTO_USD });
+    const fecha = aFechaISO(fee.fecha);
+    if (monto === null || fecha === null) return null;
+    return { fecha, monto, nota: esTextoSeguro(fee.nota, MAX_TEXTO_CORTO) };
+  }
+
+  function normalizarPosicion(p) {
+    if (!p || typeof p !== 'object') return null;
+    if (!esIdValido(p.id)) return null;
+    const fechaCreacion = aFechaISO(p.fechaCreacion);
+    if (fechaCreacion === null) return null;
+
+    const fechaCierre = aFechaISO(p.fechaCierre);
+    const rangoMin = aNumeroFinito(p.rangoMin, { min: 0, max: MAX_PRECIO });
+    const rangoMax = aNumeroFinito(p.rangoMax, { min: 0, max: MAX_PRECIO });
+    const rangoValido = rangoMin !== null && rangoMax !== null && rangoMin <= rangoMax;
+
+    return {
+      id: p.id,
+      nombre: esTextoSeguro(p.nombre, MAX_TEXTO_CORTO),
+      identificador: esTextoSeguro(p.identificador, MAX_TEXTO_CORTO),
+      notas: esTextoSeguro(p.notas, MAX_TEXTO_LARGO),
+      fechaCreacion,
+      fechaCierre: (fechaCierre && fechaCierre >= fechaCreacion) ? fechaCierre : null,
+      rangoMin: rangoValido ? rangoMin : null,
+      rangoMax: rangoValido ? rangoMax : null,
+      fees: Array.isArray(p.fees) ? p.fees.map(normalizarFee).filter(Boolean) : []
+    };
+  }
+
+  function leerLista(clave, normalizador) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(clave) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizador).filter(Boolean);
+    } catch (e) {
+      console.warn(`Datos inválidos en ${clave}, se descartan.`, e);
+      return [];
+    }
+  }
+
   // --- Almacenamiento ---
   function cargarDatos() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        posiciones = JSON.parse(raw);
-        // Asegurar que cada posición tenga array fees y fechas como strings o null
-        posiciones.forEach(p => {
-          if (!p.fees) p.fees = [];
-          if (!p.fechaCierre) p.fechaCierre = null;
-          if (!p.nombre) p.nombre = '';
-          if (!p.notas) p.notas = '';
-          if (p.rangoMin === undefined) p.rangoMin = null;
-          if (p.rangoMax === undefined) p.rangoMax = null;
-          if (!p.identificador) p.identificador = '';
-        });
-      } catch (e) {
-        posiciones = [];
-      }
-    } else {
-      posiciones = [];
-    }
-    const rawArchivo = localStorage.getItem(STATS_ARCHIVE_KEY);
-    if (rawArchivo) {
-      try {
-        posicionesArchivadas = JSON.parse(rawArchivo);
-        posicionesArchivadas = posicionesArchivadas.filter(pos => pos && pos.id && Array.isArray(pos.fees));
-      } catch (e) {
-        posicionesArchivadas = [];
-      }
-    } else {
-      posicionesArchivadas = [];
-    }
-    const rawEstadisticasOcultas = localStorage.getItem(STATS_HIDDEN_KEY);
-    if (rawEstadisticasOcultas) {
-      try {
-        estadisticasOcultas = JSON.parse(rawEstadisticasOcultas).filter(id => typeof id === 'string');
-      } catch (e) {
-        estadisticasOcultas = [];
-      }
-    } else {
+    posiciones = leerLista(STORAGE_KEY, normalizarPosicion);
+    posicionesArchivadas = leerLista(STATS_ARCHIVE_KEY, normalizarPosicion);
+    try {
+      const ocultas = JSON.parse(localStorage.getItem(STATS_HIDDEN_KEY) || '[]');
+      estadisticasOcultas = Array.isArray(ocultas) ? ocultas.filter(esIdValido) : [];
+    } catch (e) {
       estadisticasOcultas = [];
     }
     return posiciones;
   }
 
   function guardarDatos() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(posiciones));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posiciones));
+      return true;
+    } catch (e) {
+      console.error('No se pudo escribir en localStorage', e);
+      alert('No se pudieron guardar los cambios. Revisá el espacio disponible del navegador.');
+      return false;
+    }
   }
 
   function guardarArchivoEstadisticas() {
-    localStorage.setItem(STATS_ARCHIVE_KEY, JSON.stringify(posicionesArchivadas));
+    try {
+      localStorage.setItem(STATS_ARCHIVE_KEY, JSON.stringify(posicionesArchivadas));
+      return true;
+    } catch (e) {
+      console.error('No se pudo escribir en localStorage', e);
+      return false;
+    }
   }
 
   function guardarEstadisticasOcultas() {
-    localStorage.setItem(STATS_HIDDEN_KEY, JSON.stringify(estadisticasOcultas));
+    try {
+      localStorage.setItem(STATS_HIDDEN_KEY, JSON.stringify(estadisticasOcultas));
+      return true;
+    } catch (e) {
+      console.error('No se pudo escribir en localStorage', e);
+      return false;
+    }
   }
 
   function eliminarRegistroEstadisticas(idPosicion, archivada) {
@@ -146,70 +215,94 @@
   }
 
   // --- CRUD ---
+  function validarRango(rangoMin, rangoMax) {
+    const min = aNumeroFinito(rangoMin, { min: 0, max: MAX_PRECIO });
+    const max = aNumeroFinito(rangoMax, { min: 0, max: MAX_PRECIO });
+    if ((rangoMin !== '' && min === null) || (rangoMax !== '' && max === null)) {
+      return { ok: false, error: 'El rango debe ser numérico y positivo.' };
+    }
+    if (min !== null && max !== null && min > max) {
+      return { ok: false, error: 'El mínimo del rango no puede ser mayor que el máximo.' };
+    }
+    return { ok: true, min, max };
+  }
+
   function crearPosicion(nombre, fechaCreacion, notas, rangoMin, rangoMax, identificador) {
+    const fecha = aFechaISO(fechaCreacion);
+    if (fecha === null) return { ok: false, error: 'La fecha de creación no es válida.' };
+
+    const rango = validarRango(rangoMin, rangoMax);
+    if (!rango.ok) return rango;
+
     const nueva = {
       id: generarId(),
-      nombre: nombre.trim() || `Posición ${posiciones.length+1}`,
-      fechaCreacion: fechaCreacion || ahoraISO(),
+      nombre: esTextoSeguro(nombre, MAX_TEXTO_CORTO) || `Posición ${posiciones.length + 1}`,
+      fechaCreacion: fecha,
       fechaCierre: null,
-      notas: notas || '',
-      rangoMin: (rangoMin !== undefined && rangoMin !== null && rangoMin !== '') ? parseFloat(rangoMin) : null,
-      rangoMax: (rangoMax !== undefined && rangoMax !== null && rangoMax !== '') ? parseFloat(rangoMax) : null,
-      identificador: identificador ? identificador.trim() : '',
+      notas: esTextoSeguro(notas, MAX_TEXTO_LARGO),
+      rangoMin: rango.min,
+      rangoMax: rango.max,
+      identificador: esTextoSeguro(identificador, MAX_TEXTO_CORTO),
       fees: []
     };
-    posiciones.unshift(nueva); // más reciente arriba
-    guardarDatos();
+    posiciones.unshift(nueva);
+    if (!guardarDatos()) return { ok: false, error: 'No se pudo guardar. ¿Almacenamiento lleno?' };
     renderizarListado();
-    return nueva;
+    return { ok: true, posicion: nueva };
   }
 
   function actualizarPosicion(idPosicion, notas, rangoMin, rangoMax, identificador) {
     const pos = posiciones.find(p => p.id === idPosicion);
-    if (!pos) return false;
-    pos.notas = notas || '';
-    pos.rangoMin = (rangoMin !== undefined && rangoMin !== null && rangoMin !== '') ? parseFloat(rangoMin) : null;
-    pos.rangoMax = (rangoMax !== undefined && rangoMax !== null && rangoMax !== '') ? parseFloat(rangoMax) : null;
-    pos.identificador = identificador ? identificador.trim() : '';
+    if (!pos) return { ok: false, error: 'Posición no encontrada.' };
+
+    const rango = validarRango(rangoMin, rangoMax);
+    if (!rango.ok) return rango;
+
+    pos.notas = esTextoSeguro(notas, MAX_TEXTO_LARGO);
+    pos.rangoMin = rango.min;
+    pos.rangoMax = rango.max;
+    pos.identificador = esTextoSeguro(identificador, MAX_TEXTO_CORTO);
     guardarDatos();
     renderizarListado();
-    return true;
+    return { ok: true };
   }
 
   function agregarFee(idPosicion, fecha, monto, nota) {
     const pos = posiciones.find(p => p.id === idPosicion);
-    if (!pos) return false;
-    if (pos.fechaCierre) {
-      alert('Esta posición está cerrada. No se pueden agregar más fees.');
-      return false;
+    if (!pos) return { ok: false, error: 'Posición no encontrada.' };
+    if (pos.fechaCierre) return { ok: false, error: 'Esta posición está cerrada. No se pueden agregar más fees.' };
+
+    const fechaFee = aFechaISO(fecha);
+    if (fechaFee === null) return { ok: false, error: 'La fecha del fee no es válida.' };
+    if (fechaFee < pos.fechaCreacion) return { ok: false, error: 'El fee no puede ser anterior a la creación de la posición.' };
+
+    const montoNumerico = aNumeroFinito(monto, { min: MIN_COLLECT_USD, max: MAX_MONTO_USD });
+    if (montoNumerico === null) {
+      return { ok: false, error: `El collect manual debe ser numérico y de al menos $${MIN_COLLECT_USD.toFixed(2)} USD.` };
     }
-    const montoNumerico = parseFloat(monto);
-    if (!Number.isFinite(montoNumerico) || montoNumerico < MIN_COLLECT_USD) {
-      alert(`El collect manual debe ser de al menos $${MIN_COLLECT_USD.toFixed(2)} USD.`);
-      return false;
-    }
-    const fee = {
-      fecha: fecha || ahoraISO(),
-      monto: montoNumerico,
-      nota: nota || ''
-    };
-    pos.fees.push(fee);
+
+    pos.fees.push({ fecha: fechaFee, monto: montoNumerico, nota: esTextoSeguro(nota, MAX_TEXTO_CORTO) });
     guardarDatos();
     renderizarListado();
-    return true;
+    return { ok: true };
   }
 
   function cerrarPosicion(idPosicion, fechaCierre) {
     const pos = posiciones.find(p => p.id === idPosicion);
-    if (!pos) return false;
-    if (pos.fechaCierre) {
-      alert('Ya está cerrada.');
-      return false;
-    }
-    pos.fechaCierre = fechaCierre || ahoraISO();
+    if (!pos) return { ok: false, error: 'Posición no encontrada.' };
+    if (pos.fechaCierre) return { ok: false, error: 'Ya está cerrada.' };
+
+    const fecha = aFechaISO(fechaCierre);
+    if (fecha === null) return { ok: false, error: 'La fecha de cierre no es válida.' };
+    if (fecha < pos.fechaCreacion) return { ok: false, error: 'La fecha de cierre no puede ser anterior a la creación.' };
+
+    const ultimoFee = pos.fees.length > 0 ? pos.fees[pos.fees.length - 1].fecha : null;
+    if (ultimoFee && fecha < ultimoFee) return { ok: false, error: 'La fecha de cierre no puede ser anterior al último fee registrado.' };
+
+    pos.fechaCierre = fecha;
     guardarDatos();
     renderizarListado();
-    return true;
+    return { ok: true };
   }
 
   function eliminarPosicion(idPosicion) {
@@ -244,7 +337,7 @@
       const tieneRango = pos.rangoMin !== null && pos.rangoMax !== null;
       const estaEnRango = !isCerrada && tieneRango && precioEth !== null && precioEth >= pos.rangoMin && precioEth <= pos.rangoMax;
 
-      html += `<div class="${claseCard}" data-id="${pos.id}">`;
+      html += `<div class="${claseCard}" data-id="${escapeAttr(pos.id)}">`;
       html += `<div class="position-header">`;
       html += `<div class="position-title">${escapeHtml(pos.nombre)} <span class="${badgeClase}">${badgeTexto}</span>`;
       if (estaEnRango) {
@@ -279,11 +372,11 @@
       // Acciones
       html += `<div class="position-actions">`;
       if (!isCerrada) {
-        html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${pos.id}">📥 Collect Fee</button>`;
-        html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${pos.id}">🔒 Cerrar</button>`;
+        html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${escapeAttr(pos.id)}">📥 Collect Fee</button>`;
+        html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${escapeAttr(pos.id)}">🔒 Cerrar</button>`;
       }
-      html += `<button class="btn btn-secondary btn-sm btn-editar" data-id="${pos.id}">✏️ Editar</button>`;
-      html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${pos.id}">🗑️ Eliminar</button>`;
+      html += `<button class="btn btn-secondary btn-sm btn-editar" data-id="${escapeAttr(pos.id)}">✏️ Editar</button>`;
+      html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${escapeAttr(pos.id)}">🗑️ Eliminar</button>`;
       html += `</div>`;
 
       // Lista de fees (expandible)
@@ -291,7 +384,8 @@
         html += `<div class="fee-list">`;
         html += `<strong>Historial de fees:</strong> `;
         pos.fees.forEach((fee, i) => {
-          const montoStr = fee.monto ? `$${fee.monto.toFixed(2)}` : '';
+          const montoNum = aNumeroFinito(fee.monto, { min: 0, max: MAX_MONTO_USD });
+          const montoStr = montoNum !== null ? `$${montoNum.toFixed(2)}` : '';
           const notaStr = fee.nota ? ` (${escapeHtml(fee.nota)})` : '';
           html += `<span class="fee-item">#${i+1} ${fechaISO(fee.fecha)} ${montoStr}${notaStr}</span>`;
         });
@@ -384,7 +478,7 @@
     const htmlTarjetas = filas.map(({ pos, archivada, stats }, indice) => {
       const esTop = indice === 0;
       return `
-        <div class="stats-card" data-id="${pos.id}">
+        <div class="stats-card" data-id="${escapeAttr(pos.id)}">
           <div class="stats-card-header">
             <div class="stats-card-title">
               <span class="stats-rank${esTop ? ' top' : ''}">${indice + 1}</span>
@@ -392,7 +486,7 @@
             </div>
             <div class="stats-card-actions">
               <span class="stats-highlight">${formatearPrecioUsd(stats.ingresoDiario)} / día</span>
-              <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${pos.id}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
+              <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${escapeAttr(pos.id)}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
             </div>
           </div>
           <div class="stats-grid">
@@ -428,16 +522,16 @@
     const html = `
       <h2>📌 Nueva Posición</h2>
       <label for="nombrePos">Nombre / Pool (opcional)</label>
-      <input type="text" id="nombrePos" placeholder="Ej: Uniswap ETH/USDC" />
+      <input type="text" id="nombrePos" placeholder="Ej: Uniswap ETH/USDC" maxlength="120" />
 
       <label for="idPos">ID de posición (opcional)</label>
-      <input type="text" id="idPos" placeholder="Ej: Token ID del NFT, #12345" />
+      <input type="text" id="idPos" placeholder="Ej: Token ID del NFT, #12345" maxlength="120" />
 
       <label for="fechaCreacionPos">Fecha de creación</label>
       <input type="datetime-local" id="fechaCreacionPos" value="${formatearFechaParaInput(ahora)}" />
 
       <label for="notasPos">Notas (opcional)</label>
-      <textarea id="notasPos" placeholder="Observaciones..."></textarea>
+      <textarea id="notasPos" placeholder="Observaciones..." maxlength="2000"></textarea>
 
       <label>Rango de precios (opcional)</label>
       <div class="flex">
@@ -455,21 +549,15 @@
 
     document.getElementById('btnCancelarPos').addEventListener('click', cerrarModal);
     document.getElementById('btnGuardarPos').addEventListener('click', function() {
-      const nombre = document.getElementById('nombrePos').value;
-      const idExterno = document.getElementById('idPos').value;
-      const fecha = document.getElementById('fechaCreacionPos').value;
-      const notas = document.getElementById('notasPos').value;
-      const rangoMin = document.getElementById('rangoMinPos').value;
-      const rangoMax = document.getElementById('rangoMaxPos').value;
-      if (!fecha) {
-        alert('La fecha de creación es obligatoria.');
-        return;
-      }
-      if (rangoMin !== '' && rangoMax !== '' && parseFloat(rangoMin) > parseFloat(rangoMax)) {
-        alert('El mínimo del rango no puede ser mayor que el máximo.');
-        return;
-      }
-      crearPosicion(nombre, fecha, notas, rangoMin, rangoMax, idExterno);
+      const resultado = crearPosicion(
+        document.getElementById('nombrePos').value,
+        document.getElementById('fechaCreacionPos').value,
+        document.getElementById('notasPos').value,
+        document.getElementById('rangoMinPos').value,
+        document.getElementById('rangoMaxPos').value,
+        document.getElementById('idPos').value
+      );
+      if (!resultado.ok) { alert(resultado.error); return; }
       cerrarModal();
     });
   }
@@ -494,7 +582,7 @@
       <p class="form-help">El mínimo para registrar un collect es $${MIN_COLLECT_USD.toFixed(2)} USD.</p>
 
       <label for="notaFee">Nota (opcional)</label>
-      <input type="text" id="notaFee" placeholder="Ej: Comisión semanal" />
+      <input type="text" id="notaFee" placeholder="Ej: Comisión semanal" maxlength="120" />
 
       <div class="modal-actions">
         <button class="btn btn-cancel" id="btnCancelarFee">Cancelar</button>
@@ -505,18 +593,14 @@
 
     document.getElementById('btnCancelarFee').addEventListener('click', cerrarModal);
     document.getElementById('btnGuardarFee').addEventListener('click', function() {
-      const fecha = document.getElementById('fechaFee').value;
-      const monto = document.getElementById('montoFee').value;
-      const nota = document.getElementById('notaFee').value;
-      if (!fecha) {
-        alert('La fecha es obligatoria.');
-        return;
-      }
-      if (!Number.isFinite(parseFloat(monto)) || parseFloat(monto) < MIN_COLLECT_USD) {
-        alert(`El collect manual debe ser de al menos $${MIN_COLLECT_USD.toFixed(2)} USD.`);
-        return;
-      }
-      if (agregarFee(idPosicion, fecha, monto, nota)) cerrarModal();
+      const resultado = agregarFee(
+        idPosicion,
+        document.getElementById('fechaFee').value,
+        document.getElementById('montoFee').value,
+        document.getElementById('notaFee').value
+      );
+      if (!resultado.ok) { alert(resultado.error); return; }
+      cerrarModal();
     });
   }
 
@@ -544,12 +628,8 @@
 
     document.getElementById('btnCancelarCierre').addEventListener('click', cerrarModal);
     document.getElementById('btnConfirmarCierre').addEventListener('click', function() {
-      const fecha = document.getElementById('fechaCierrePos').value;
-      if (!fecha) {
-        alert('La fecha de cierre es obligatoria.');
-        return;
-      }
-      cerrarPosicion(idPosicion, fecha);
+      const resultado = cerrarPosicion(idPosicion, document.getElementById('fechaCierrePos').value);
+      if (!resultado.ok) { alert(resultado.error); return; }
       cerrarModal();
     });
   }
@@ -563,17 +643,17 @@
       <p><strong>${escapeHtml(pos.nombre)}</strong></p>
 
       <label for="idEdit">ID de posición</label>
-      <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeHtml(pos.identificador)}" />
+      <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeAttr(pos.identificador)}" maxlength="120" />
 
       <label>Rango de precios</label>
       <div class="flex">
-        <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${pos.rangoMin !== null ? pos.rangoMin : ''}" style="flex:1;" />
+        <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${escapeAttr(aNumeroFinito(pos.rangoMin) ?? '')}" style="flex:1;" />
         <span class="text-muted">–</span>
-        <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${pos.rangoMax !== null ? pos.rangoMax : ''}" style="flex:1;" />
+        <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${escapeAttr(aNumeroFinito(pos.rangoMax) ?? '')}" style="flex:1;" />
       </div>
 
       <label for="notasEdit">Notas</label>
-      <textarea id="notasEdit" placeholder="Observaciones...">${escapeHtml(pos.notas)}</textarea>
+      <textarea id="notasEdit" placeholder="Observaciones..." maxlength="2000">${escapeHtml(pos.notas)}</textarea>
 
       <div class="modal-actions">
         <button class="btn btn-cancel" id="btnCancelarEditar">Cancelar</button>
@@ -584,15 +664,14 @@
 
     document.getElementById('btnCancelarEditar').addEventListener('click', cerrarModal);
     document.getElementById('btnGuardarEditar').addEventListener('click', function() {
-      const idExterno = document.getElementById('idEdit').value;
-      const rangoMin = document.getElementById('rangoMinEdit').value;
-      const rangoMax = document.getElementById('rangoMaxEdit').value;
-      const notas = document.getElementById('notasEdit').value;
-      if (rangoMin !== '' && rangoMax !== '' && parseFloat(rangoMin) > parseFloat(rangoMax)) {
-        alert('El mínimo del rango no puede ser mayor que el máximo.');
-        return;
-      }
-      actualizarPosicion(idPosicion, notas, rangoMin, rangoMax, idExterno);
+      const resultado = actualizarPosicion(
+        idPosicion,
+        document.getElementById('notasEdit').value,
+        document.getElementById('rangoMinEdit').value,
+        document.getElementById('rangoMaxEdit').value,
+        document.getElementById('idEdit').value
+      );
+      if (!resultado.ok) { alert(resultado.error); return; }
       cerrarModal();
     });
   }
@@ -635,13 +714,17 @@
     btnSync.textContent = '↻ Sincronizando…';
     syncStatusEl.textContent = 'Consultando ETH/USDT en Binance…';
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
+      const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT', { signal: controller.signal });
       if (!response.ok) throw new Error(`Binance respondió ${response.status}`);
 
       const data = await response.json();
       const precio = Number(data.price);
-      if (!Number.isFinite(precio) || precio <= 0) throw new Error('Binance devolvió un precio inválido');
+      if (!Number.isFinite(precio) || precio <= 0 || precio > MAX_PRECIO) {
+        throw new Error('Binance devolvió un precio fuera de rango');
+      }
 
       precioEth = precio;
       ultimaSincronizacion = ahoraISO();
@@ -650,6 +733,7 @@
       console.error('No se pudo sincronizar ETH/USDT:', error);
       syncStatusEl.textContent = 'No se pudo consultar Binance. Verificá tu conexión e intentá nuevamente.';
     } finally {
+      clearTimeout(timeout);
       btnSync.disabled = false;
       btnSync.textContent = '↻ Sync ETH';
     }
