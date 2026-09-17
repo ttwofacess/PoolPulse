@@ -1,6 +1,6 @@
 import { MAX_MONTO_USD } from './constants.js';
 import { state } from './state.js';
-import { formatearNumero, formatearPrecioUsd, fechaISO, ahoraISO, aNumeroFinito, escapeAttr, escapeHtml } from './utils.js';
+import { formatearNumero, formatearPrecioUsd, fechaISO, ahoraISO, aNumeroFinito, escapeHtml } from './utils.js';
 import { calcularEstadisticas } from './stats.js';
 
 const listadoEl = document.getElementById('listadoPosiciones');
@@ -38,7 +38,7 @@ export function renderizarListado() {
     const tieneRango = pos.rangoMin !== null && pos.rangoMax !== null;
     const estaEnRango = !isCerrada && tieneRango && state.precioEth !== null && state.precioEth >= pos.rangoMin && state.precioEth <= pos.rangoMax;
 
-    html += `<div class="${claseCard}" data-id="${escapeAttr(pos.id)}">`;
+    html += `<div class="${claseCard}" data-id="${escapeHtml(pos.id)}">`;
     html += `<div class="position-header">`;
     html += `<div class="position-title">${escapeHtml(pos.nombre)} <span class="${badgeClase}">${badgeTexto}</span>`;
     if (estaEnRango) {
@@ -72,11 +72,11 @@ export function renderizarListado() {
 
     html += `<div class="position-actions">`;
     if (!isCerrada) {
-      html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${escapeAttr(pos.id)}">📥 Collect Fee</button>`;
-      html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${escapeAttr(pos.id)}">🔒 Cerrar</button>`;
+      html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${escapeHtml(pos.id)}">📥 Collect Fee</button>`;
+      html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${escapeHtml(pos.id)}">🔒 Cerrar</button>`;
     }
-    html += `<button class="btn btn-secondary btn-sm btn-editar" data-id="${escapeAttr(pos.id)}">✏️ Editar</button>`;
-    html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${escapeAttr(pos.id)}">🗑️ Eliminar</button>`;
+    html += `<button class="btn btn-secondary btn-sm btn-editar" data-id="${escapeHtml(pos.id)}">✏️ Editar</button>`;
+    html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${escapeHtml(pos.id)}">🗑️ Eliminar</button>`;
     html += `</div>`;
 
     if (numFees > 0) {
@@ -126,7 +126,7 @@ export function renderizarEstadisticas() {
   const htmlTarjetas = filas.map(({ pos, archivada, stats }, indice) => {
     const esTop = indice === 0;
     return `
-      <div class="stats-card" data-id="${escapeAttr(pos.id)}">
+      <div class="stats-card" data-id="${escapeHtml(pos.id)}">
         <div class="stats-card-header">
           <div class="stats-card-title">
             <span class="stats-rank${esTop ? ' top' : ''}">${indice + 1}</span>
@@ -134,7 +134,7 @@ export function renderizarEstadisticas() {
           </div>
           <div class="stats-card-actions">
             <span class="stats-highlight">${formatearPrecioUsd(stats.ingresoDiario)} / día</span>
-            <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${escapeAttr(pos.id)}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
+            <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${escapeHtml(pos.id)}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
           </div>
         </div>
         <div class="stats-grid">

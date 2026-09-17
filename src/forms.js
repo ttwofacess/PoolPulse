@@ -1,6 +1,6 @@
 import { MIN_COLLECT_USD } from './constants.js';
 import { state } from './state.js';
-import { ahoraISO, formatearFechaParaInput, escapeHtml, escapeAttr, aNumeroFinito } from './utils.js';
+import { ahoraISO, formatearFechaParaInput, escapeHtml, aNumeroFinito } from './utils.js';
 import { crearPosicion, agregarFee, cerrarPosicion, actualizarPosicion } from './crud.js';
 import { abrirModal, cerrarModal, renderizarListado } from './ui.js';
 
@@ -130,13 +130,13 @@ export function mostrarFormEditar(idPosicion) {
     <p><strong>${escapeHtml(pos.nombre)}</strong></p>
 
     <label for="idEdit">ID de posición</label>
-    <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeAttr(pos.identificador)}" maxlength="120" />
+    <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeHtml(pos.identificador)}" maxlength="120" />
 
     <label>Rango de precios</label>
     <div class="flex">
-      <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${escapeAttr(aNumeroFinito(pos.rangoMin) ?? '')}" class="field-grow" />
+      <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${escapeHtml(aNumeroFinito(pos.rangoMin) ?? '')}" class="field-grow" />
       <span class="text-muted">–</span>
-      <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${escapeAttr(aNumeroFinito(pos.rangoMax) ?? '')}" class="field-grow" />
+      <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${escapeHtml(aNumeroFinito(pos.rangoMax) ?? '')}" class="field-grow" />
     </div>
 
     <label for="notasEdit">Notas</label>

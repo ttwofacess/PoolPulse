@@ -68,21 +68,18 @@ export function esIdValido(valor) {
   return typeof valor === 'string' && /^[a-z0-9-]{1,64}$/i.test(valor);
 }
 
-export function escapeAttr(valor) {
-  return String(valor === null || valor === undefined ? '' : valor)
+export function escapeHtml(valor) {
+  if (valor === null || valor === undefined) return '';
+  return String(valor)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/'/g, '&#39;')
+    .replace(/`/g, '&#96;');
 }
 
-export function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+export const escapeAttr = escapeHtml;
 
 export function diasEntre(inicio, fin) {
   const inicioMs = new Date(inicio).getTime();
