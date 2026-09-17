@@ -1,6 +1,6 @@
 import { MAX_MONTO_USD } from './constants.js';
 import { state } from './state.js';
-import { formatearNumero, formatearPrecioUsd, fechaISO, ahoraISO, aNumeroFinito, escapeAttr, escapeHtml } from './utils.js';
+import { formatearNumero, formatearPrecioUsd, fechaISO, ahoraISO, aNumeroFinito, html, renderEn, raw } from './utils.js';
 import { calcularEstadisticas } from './stats.js';
 
 const listadoEl = document.getElementById('listadoPosiciones');
@@ -8,8 +8,8 @@ const syncStatusEl = document.getElementById('syncStatus');
 const modalOverlay = document.getElementById('modalDialog');
 const modalContenido = document.getElementById('modalContenido');
 
-export function abrirModal(html) {
-  modalContenido.innerHTML = html;
+export function abrirModal(contenido) {
+  renderEn(modalContenido, contenido);
   modalOverlay.showModal();
 }
 
@@ -23,12 +23,11 @@ export function renderizarListado() {
   }
 
   if (state.posiciones.length === 0) {
-    listadoEl.innerHTML = `<p style="text-align:center;color:#9aa6b5;padding:40px 0;">Aún no hay posiciones. Crea una con el botón "➕ Nueva Posición".</p>`;
+    renderEn(listadoEl, html`<p class="empty-state">Aún no hay posiciones. Crea una con el botón "➕ Nueva Posición".</p>`);
     return;
   }
 
-  let html = '';
-  state.posiciones.forEach((pos, index) => {
+  const tarjetas = state.posiciones.map((pos, index) => {
     const isCerrada = pos.fechaCierre !== null;
     const claseCard = isCerrada ? 'position-card cerrada' : 'position-card';
     const badgeClase = isCerrada ? 'badge cerrada' : 'badge';
@@ -38,65 +37,51 @@ export function renderizarListado() {
     const tieneRango = pos.rangoMin !== null && pos.rangoMax !== null;
     const estaEnRango = !isCerrada && tieneRango && state.precioEth !== null && state.precioEth >= pos.rangoMin && state.precioEth <= pos.rangoMax;
 
-    html += `<div class="${claseCard}" data-id="${escapeAttr(pos.id)}">`;
-    html += `<div class="position-header">`;
-    html += `<div class="position-title">${escapeHtml(pos.nombre)} <span class="${badgeClase}">${badgeTexto}</span>`;
-    if (estaEnRango) {
-      html += `<span class="range-status in-range" title="El precio actual de ETH está dentro del rango">● ✓ En rango</span>`;
-    } else if (!isCerrada && tieneRango && state.precioEth !== null) {
-      html += `<span class="range-status out-of-range" title="El precio actual de ETH está fuera del rango">● Fuera de rango</span>`;
-    }
-    html += `</div>`;
-    html += `<span class="text-muted" style="font-size:0.8rem;">#${index+1}</span>`;
-    html += `</div>`;
+    const feeItems = pos.fees.map((fee, i) => {
+      const montoNum = aNumeroFinito(fee.monto, { min: 0, max: MAX_MONTO_USD });
+      const montoStr = montoNum !== null ? `$${montoNum.toFixed(2)}` : '';
+      return html`<span class="fee-item">#${i + 1} ${fechaISO(fee.fecha)} ${montoStr}${fee.nota ? ` (${fee.nota})` : ''}</span>`;
+    });
 
-    html += `<div class="position-details">`;
-    if (pos.identificador) {
-      html += `<span>🆔 ID: ${escapeHtml(pos.identificador)}</span>`;
-    }
-    html += `<span>📅 Creación: ${fechaISO(pos.fechaCreacion)}</span>`;
-    if (isCerrada) {
-      html += `<span>🔒 Cierre: ${fechaISO(pos.fechaCierre)}</span>`;
-    }
-    html += `<span>💰 Fees: ${numFees}</span>`;
-    html += `<span>📌 Último fee: ${ultimoFee}</span>`;
-    if (pos.rangoMin !== null && pos.rangoMax !== null) {
-      html += `<span>📊 Rango: ${formatearNumero(pos.rangoMin)} – ${formatearNumero(pos.rangoMax)}</span>`;
-    } else {
-      html += `<span class="text-muted">📊 Rango: sin definir</span>`;
-    }
-    if (pos.notas) {
-      html += `<span>📝 ${escapeHtml(pos.notas)}</span>`;
-    }
-    html += `</div>`;
-
-    html += `<div class="position-actions">`;
-    if (!isCerrada) {
-      html += `<button class="btn btn-success btn-sm btn-agregar-fee" data-id="${escapeAttr(pos.id)}">📥 Collect Fee</button>`;
-      html += `<button class="btn btn-warning btn-sm btn-cerrar" data-id="${escapeAttr(pos.id)}">🔒 Cerrar</button>`;
-    }
-    html += `<button class="btn btn-secondary btn-sm btn-editar" data-id="${escapeAttr(pos.id)}">✏️ Editar</button>`;
-    html += `<button class="btn btn-danger btn-sm btn-eliminar" data-id="${escapeAttr(pos.id)}">🗑️ Eliminar</button>`;
-    html += `</div>`;
-
-    if (numFees > 0) {
-      html += `<div class="fee-list">`;
-      html += `<strong>Historial de fees:</strong> `;
-      pos.fees.forEach((fee, i) => {
-        const montoNum = aNumeroFinito(fee.monto, { min: 0, max: MAX_MONTO_USD });
-        const montoStr = montoNum !== null ? `$${montoNum.toFixed(2)}` : '';
-        const notaStr = fee.nota ? ` (${escapeHtml(fee.nota)})` : '';
-        html += `<span class="fee-item">#${i+1} ${fechaISO(fee.fecha)} ${montoStr}${notaStr}</span>`;
-      });
-      html += `</div>`;
-    } else {
-      html += `<div class="fee-list no-fees">Sin fees recolectados aún.</div>`;
-    }
-
-    html += `</div>`;
+    return html`
+      <div class="${claseCard}" data-id="${pos.id}">
+        <div class="position-header">
+          <div class="position-title">${pos.nombre} <span class="${badgeClase}">${badgeTexto}</span>
+            ${estaEnRango
+              ? html`<span class="range-status in-range" title="El precio actual de ETH está dentro del rango">● ✓ En rango</span>`
+              : !isCerrada && tieneRango && state.precioEth !== null
+                ? html`<span class="range-status out-of-range" title="El precio actual de ETH está fuera del rango">● Fuera de rango</span>`
+                : raw('')}
+          </div>
+          <span class="text-muted text-xs">#${index + 1}</span>
+        </div>
+        <div class="position-details">
+          ${pos.identificador ? html`<span>🆔 ID: ${pos.identificador}</span>` : raw('')}
+          <span>📅 Creación: ${fechaISO(pos.fechaCreacion)}</span>
+          ${isCerrada ? html`<span>🔒 Cierre: ${fechaISO(pos.fechaCierre)}</span>` : raw('')}
+          <span>💰 Fees: ${numFees}</span>
+          <span>📌 Último fee: ${ultimoFee}</span>
+          ${tieneRango
+            ? html`<span>📊 Rango: ${formatearNumero(pos.rangoMin)} – ${formatearNumero(pos.rangoMax)}</span>`
+            : html`<span class="text-muted">📊 Rango: sin definir</span>`}
+          ${pos.notas ? html`<span>📝 ${pos.notas}</span>` : raw('')}
+        </div>
+        <div class="position-actions">
+          ${!isCerrada
+            ? html`
+              <button class="btn btn-success btn-sm btn-agregar-fee" data-id="${pos.id}">📥 Collect Fee</button>
+              <button class="btn btn-warning btn-sm btn-cerrar" data-id="${pos.id}">🔒 Cerrar</button>`
+            : raw('')}
+          <button class="btn btn-secondary btn-sm btn-editar" data-id="${pos.id}">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm btn-eliminar" data-id="${pos.id}">🗑️ Eliminar</button>
+        </div>
+        ${numFees > 0
+          ? html`<div class="fee-list"><strong>Historial de fees:</strong> ${feeItems}</div>`
+          : html`<div class="fee-list no-fees">Sin fees recolectados aún.</div>`}
+      </div>`;
   });
 
-  listadoEl.innerHTML = html;
+  renderEn(listadoEl, html`${tarjetas}`);
 }
 
 export function renderizarEstadisticas() {
@@ -111,7 +96,7 @@ export function renderizarEstadisticas() {
   ];
 
   if (posicionesParaEstadisticas.length === 0) {
-    estadisticasEl.innerHTML = `<p class="stats-empty">Todavía no hay posiciones para comparar. Crea una desde la pestaña "📋 Posiciones".</p>`;
+    renderEn(estadisticasEl, html`<p class="stats-empty">Todavía no hay posiciones para comparar. Crea una desde la pestaña "📋 Posiciones".</p>`);
     return;
   }
 
@@ -125,16 +110,16 @@ export function renderizarEstadisticas() {
 
   const htmlTarjetas = filas.map(({ pos, archivada, stats }, indice) => {
     const esTop = indice === 0;
-    return `
-      <div class="stats-card" data-id="${escapeAttr(pos.id)}">
+    return html`
+      <div class="stats-card" data-id="${pos.id}">
         <div class="stats-card-header">
           <div class="stats-card-title">
             <span class="stats-rank${esTop ? ' top' : ''}">${indice + 1}</span>
-            ${escapeHtml(pos.nombre)}
+            ${pos.nombre}
           </div>
           <div class="stats-card-actions">
             <span class="stats-highlight">${formatearPrecioUsd(stats.ingresoDiario)} / día</span>
-            <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${escapeAttr(pos.id)}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
+            <button class="btn btn-danger btn-sm btn-eliminar-estadistica" data-id="${pos.id}" data-archivada="${archivada}" type="button">🗑️ Eliminar</button>
           </div>
         </div>
         <div class="stats-grid">
@@ -146,9 +131,9 @@ export function renderizarEstadisticas() {
           <div><small>Último collect</small><strong>${stats.ultimoCollect ? fechaISO(stats.ultimoCollect) : '—'}</strong></div>
         </div>
       </div>`;
-  }).join('');
+  });
 
-  estadisticasEl.innerHTML = `
+  renderEn(estadisticasEl, html`
     <div class="stats-header">
       <h2>📊 Estadísticas de collects</h2>
     </div>
@@ -159,5 +144,5 @@ export function renderizarEstadisticas() {
       <div><small>Promedio por collect</small><strong>${promedioGeneral === null ? '—' : formatearPrecioUsd(promedioGeneral)}</strong></div>
     </div>
     ${htmlTarjetas}
-  `;
+  `);
 }

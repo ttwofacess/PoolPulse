@@ -412,6 +412,17 @@ dialog::backdrop {
 .mt-2 { margin-top: 12px; }
 .mb-2 { margin-bottom: 12px; }
 .flex { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.empty-state {
+  text-align: center;
+  color: #9aa6b5;
+  padding: 40px 0;
+}
+.field-grow {
+  flex: 1;
+}
+.text-xs {
+  font-size: 0.8rem;
+}
 
 /* --- Responsive --- */
 @media (max-width: 600px) {

@@ -1,12 +1,12 @@
 import { MIN_COLLECT_USD } from './constants.js';
 import { state } from './state.js';
-import { ahoraISO, formatearFechaParaInput, escapeHtml, escapeAttr, aNumeroFinito } from './utils.js';
+import { ahoraISO, formatearFechaParaInput, aNumeroFinito, html } from './utils.js';
 import { crearPosicion, agregarFee, cerrarPosicion, actualizarPosicion } from './crud.js';
 import { abrirModal, cerrarModal, renderizarListado } from './ui.js';
 
 export function mostrarFormNuevaPosicion() {
   const ahora = ahoraISO();
-  const html = `
+  const contenido = html`
     <h2>📌 Nueva Posición</h2>
     <label for="nombrePos">Nombre / Pool (opcional)</label>
     <input type="text" id="nombrePos" placeholder="Ej: Uniswap ETH/USDC" maxlength="120" />
@@ -22,9 +22,9 @@ export function mostrarFormNuevaPosicion() {
 
     <label>Rango de precios (opcional)</label>
     <div class="flex">
-      <input type="number" step="any" id="rangoMinPos" placeholder="Mínimo" style="flex:1;" />
+      <input type="number" step="any" id="rangoMinPos" placeholder="Mínimo" class="field-grow" />
       <span class="text-muted">–</span>
-      <input type="number" step="any" id="rangoMaxPos" placeholder="Máximo" style="flex:1;" />
+      <input type="number" step="any" id="rangoMaxPos" placeholder="Máximo" class="field-grow" />
     </div>
 
     <div class="modal-actions">
@@ -32,7 +32,7 @@ export function mostrarFormNuevaPosicion() {
       <button class="btn" id="btnGuardarPos">Guardar</button>
     </div>
   `;
-  abrirModal(html);
+  abrirModal(contenido);
 
   document.getElementById('btnCancelarPos').addEventListener('click', cerrarModal);
   document.getElementById('btnGuardarPos').addEventListener('click', function() {
@@ -58,9 +58,9 @@ export function mostrarFormAgregarFee(idPosicion) {
     return;
   }
   const ahora = ahoraISO();
-  const html = `
+  const contenido = html`
     <h2>📥 Collect Fee</h2>
-    <p><strong>Posición:</strong> ${escapeHtml(pos.nombre)}</p>
+    <p><strong>Posición:</strong> ${pos.nombre}</p>
     <label for="fechaFee">Fecha del fee</label>
     <input type="datetime-local" id="fechaFee" value="${formatearFechaParaInput(ahora)}" />
 
@@ -76,7 +76,7 @@ export function mostrarFormAgregarFee(idPosicion) {
       <button class="btn btn-success" id="btnGuardarFee">Registrar Fee</button>
     </div>
   `;
-  abrirModal(html);
+  abrirModal(contenido);
 
   document.getElementById('btnCancelarFee').addEventListener('click', cerrarModal);
   document.getElementById('btnGuardarFee').addEventListener('click', function() {
@@ -100,9 +100,9 @@ export function mostrarFormCerrarPosicion(idPosicion) {
     return;
   }
   const ahora = ahoraISO();
-  const html = `
+  const contenido = html`
     <h2>🔒 Cerrar Posición</h2>
-    <p><strong>${escapeHtml(pos.nombre)}</strong></p>
+    <p><strong>${pos.nombre}</strong></p>
     <p>Fecha de cierre:</p>
     <input type="datetime-local" id="fechaCierrePos" value="${formatearFechaParaInput(ahora)}" />
 
@@ -111,7 +111,7 @@ export function mostrarFormCerrarPosicion(idPosicion) {
       <button class="btn btn-warning" id="btnConfirmarCierre">Cerrar</button>
     </div>
   `;
-  abrirModal(html);
+  abrirModal(contenido);
 
   document.getElementById('btnCancelarCierre').addEventListener('click', cerrarModal);
   document.getElementById('btnConfirmarCierre').addEventListener('click', function() {
@@ -125,29 +125,29 @@ export function mostrarFormCerrarPosicion(idPosicion) {
 export function mostrarFormEditar(idPosicion) {
   const pos = state.posiciones.find(p => p.id === idPosicion);
   if (!pos) return;
-  const html = `
+  const contenido = html`
     <h2>✏️ Editar Posición</h2>
-    <p><strong>${escapeHtml(pos.nombre)}</strong></p>
+    <p><strong>${pos.nombre}</strong></p>
 
     <label for="idEdit">ID de posición</label>
-    <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${escapeAttr(pos.identificador)}" maxlength="120" />
+    <input type="text" id="idEdit" placeholder="Ej: Token ID del NFT, #12345" value="${pos.identificador}" maxlength="120" />
 
     <label>Rango de precios</label>
     <div class="flex">
-      <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${escapeAttr(aNumeroFinito(pos.rangoMin) ?? '')}" style="flex:1;" />
+      <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${aNumeroFinito(pos.rangoMin) ?? ''}" class="field-grow" />
       <span class="text-muted">–</span>
-      <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${escapeAttr(aNumeroFinito(pos.rangoMax) ?? '')}" style="flex:1;" />
+      <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${aNumeroFinito(pos.rangoMax) ?? ''}" class="field-grow" />
     </div>
 
     <label for="notasEdit">Notas</label>
-    <textarea id="notasEdit" placeholder="Observaciones..." maxlength="2000">${escapeHtml(pos.notas)}</textarea>
+    <textarea id="notasEdit" placeholder="Observaciones..." maxlength="2000">${pos.notas}</textarea>
 
     <div class="modal-actions">
       <button class="btn btn-cancel" id="btnCancelarEditar">Cancelar</button>
       <button class="btn" id="btnGuardarEditar">Guardar</button>
     </div>
   `;
-  abrirModal(html);
+  abrirModal(contenido);
 
   document.getElementById('btnCancelarEditar').addEventListener('click', cerrarModal);
   document.getElementById('btnGuardarEditar').addEventListener('click', function() {

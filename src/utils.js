@@ -68,20 +68,51 @@ export function esIdValido(valor) {
   return typeof valor === 'string' && /^[a-z0-9-]{1,64}$/i.test(valor);
 }
 
-export function escapeAttr(valor) {
-  return String(valor === null || valor === undefined ? '' : valor)
+export function escapeHtml(valor) {
+  if (valor === null || valor === undefined) return '';
+  return String(valor)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/'/g, '&#39;')
+    .replace(/`/g, '&#96;');
 }
 
-export function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+export const escapeAttr = escapeHtml;
+
+class HtmlSeguro {
+  constructor(valor) { this.valor = String(valor); }
+  toString() { return this.valor; }
+}
+
+export function raw(valor) {
+  return new HtmlSeguro(valor);
+}
+
+export function html(partes, ...valores) {
+  return new HtmlSeguro(
+    partes.reduce((acc, parte, i) => {
+      if (i === 0) return parte;
+      const v = valores[i - 1];
+      let renderizado;
+      if (v instanceof HtmlSeguro) {
+        renderizado = v.toString();
+      } else if (Array.isArray(v)) {
+        renderizado = v.map(x => x instanceof HtmlSeguro ? x.toString() : escapeHtml(x)).join('');
+      } else {
+        renderizado = escapeHtml(v);
+      }
+      return acc + renderizado + parte;
+    }, '')
+  );
+}
+
+export function renderEn(elemento, contenido) {
+  if (!(contenido instanceof HtmlSeguro)) {
+    throw new TypeError('renderEn() requiere el resultado de html`` o raw(). Nunca una cadena cruda.');
+  }
+  elemento.innerHTML = contenido.toString();
 }
 
 export function diasEntre(inicio, fin) {
