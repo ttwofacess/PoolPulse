@@ -22,9 +22,9 @@ export function mostrarFormNuevaPosicion() {
 
     <label>Rango de precios (opcional)</label>
     <div class="flex">
-      <input type="number" step="any" id="rangoMinPos" placeholder="Mínimo" style="flex:1;" />
+      <input type="number" step="any" id="rangoMinPos" placeholder="Mínimo" class="field-grow" />
       <span class="text-muted">–</span>
-      <input type="number" step="any" id="rangoMaxPos" placeholder="Máximo" style="flex:1;" />
+      <input type="number" step="any" id="rangoMaxPos" placeholder="Máximo" class="field-grow" />
     </div>
 
     <div class="modal-actions">
@@ -134,9 +134,9 @@ export function mostrarFormEditar(idPosicion) {
 
     <label>Rango de precios</label>
     <div class="flex">
-      <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${escapeAttr(aNumeroFinito(pos.rangoMin) ?? '')}" style="flex:1;" />
+      <input type="number" step="any" id="rangoMinEdit" placeholder="Mínimo" value="${escapeAttr(aNumeroFinito(pos.rangoMin) ?? '')}" class="field-grow" />
       <span class="text-muted">–</span>
-      <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${escapeAttr(aNumeroFinito(pos.rangoMax) ?? '')}" style="flex:1;" />
+      <input type="number" step="any" id="rangoMaxEdit" placeholder="Máximo" value="${escapeAttr(aNumeroFinito(pos.rangoMax) ?? '')}" class="field-grow" />
     </div>
 
     <label for="notasEdit">Notas</label>

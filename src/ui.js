@@ -23,7 +23,7 @@ export function renderizarListado() {
   }
 
   if (state.posiciones.length === 0) {
-    listadoEl.innerHTML = `<p style="text-align:center;color:#9aa6b5;padding:40px 0;">Aún no hay posiciones. Crea una con el botón "➕ Nueva Posición".</p>`;
+    listadoEl.innerHTML = `<p class="empty-state">Aún no hay posiciones. Crea una con el botón "➕ Nueva Posición".</p>`;
     return;
   }
 
@@ -47,7 +47,7 @@ export function renderizarListado() {
       html += `<span class="range-status out-of-range" title="El precio actual de ETH está fuera del rango">● Fuera de rango</span>`;
     }
     html += `</div>`;
-    html += `<span class="text-muted" style="font-size:0.8rem;">#${index+1}</span>`;
+    html += `<span class="text-muted text-xs">#${index+1}</span>`;
     html += `</div>`;
 
     html += `<div class="position-details">`;
