@@ -1,0 +1,45 @@
+/* --- Tabs (CSS-only con radio inputs) --- */
+.tab-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.tabs {
+  display: flex;
+  gap: 6px;
+  background: white;
+  padding: 6px;
+  border-radius: 30px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  margin-bottom: 14px;
+  width: fit-content;
+  max-width: 100%;
+}
+.tab-btn {
+  border: none;
+  background: transparent;
+  color: #6c7a8d;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 9px 18px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.tab-btn:hover {
+  color: #1a2634;
+}
+#tabPosiciones:checked ~ .tabs label[for="tabPosiciones"],
+#tabEstadisticas:checked ~ .tabs label[for="tabEstadisticas"] {
+  background: #2a7de1;
+  color: white;
+}
+/* Vista activa via sibling selector */
+#tabPosiciones:checked ~ #viewPosiciones,
+#tabEstadisticas:checked ~ #viewEstadisticas {
+  display: block;
+}
+.tab-view {
+  display: none;
+}
