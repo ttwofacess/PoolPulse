@@ -1,0 +1,66 @@
+/* --- Modal --- */
+dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+dialog::backdrop {
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(3px);
+}
+.modal {
+  background: white;
+  padding: 28px 32px;
+  border-radius: 24px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  animation: fadeIn 0.25s;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal h2 {
+  margin-bottom: 18px;
+  font-weight: 600;
+}
+.modal label {
+  display: block;
+  margin: 12px 0 4px;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+.modal input, .modal textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d9e6;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: 0.2s;
+}
+.modal input:focus, .modal textarea:focus {
+  outline: none;
+  border-color: #2a7de1;
+  box-shadow: 0 0 0 3px rgba(42,125,225,0.15);
+}
+.modal textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+.form-help {
+  margin-top: 6px;
+  color: #6c7a8d;
+  font-size: 0.82rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+@media (max-width: 600px) {
+  .modal { padding: 20px; }
+}
