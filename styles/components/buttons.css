@@ -1,0 +1,43 @@
+.btn {
+  background: #2a7de1;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover { background: #1a5bbf; }
+.btn-secondary {
+  background: #6c7a8d;
+}
+.btn-secondary:hover { background: #4e5a6b; }
+.btn-danger {
+  background: #d9534f;
+}
+.btn-danger:hover { background: #c9302c; }
+.btn-success {
+  background: #28a745;
+}
+.btn-success:hover { background: #1e7e34; }
+.btn-warning {
+  background: #f0ad4e;
+  color: #1a2634;
+}
+.btn-warning:hover { background: #d58512; }
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+.btn-cancel {
+  background: #e9ecef;
+  color: #1a2634;
+}
+.btn-cancel:hover {
+  background: #d1d9e6;
+}
